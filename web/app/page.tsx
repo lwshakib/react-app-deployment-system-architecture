@@ -114,52 +114,50 @@ export default function Home() {
 
       {/* Deployment List */}
       {deployments.length > 0 && (
-        <div className="w-full max-w-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-            <h2 className="text-xs font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+        <div className="w-full max-w-2xl space-y-2">
+          <div className="flex items-center justify-between border-b border-zinc-900 pb-1 mb-4">
+            <h2 className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
               <Globe className="size-3" />
-              Active Deployments
+              Recent
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 gap-3">
+          <div className="flex flex-col">
             {deployments.map((deployment) => (
-              <Card 
+              <div 
                 key={deployment.id} 
-                className="bg-zinc-950 border-zinc-800 rounded-md"
+                className="group flex flex-col sm:flex-row sm:items-center justify-between py-3 px-1 border-b border-zinc-900 last:border-0 hover:bg-zinc-900/30 rounded-sm transition-colors"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div className="rounded-md bg-zinc-900 border border-zinc-800 p-2">
-                      <Github className="size-4 text-zinc-400" />
-                    </div>
-                    <div className="space-y-1">
-                      <CardTitle className="text-sm font-medium text-zinc-200">
-                        {deployment.repo}
-                      </CardTitle>
-                      <div className="flex items-center gap-2 text-xs text-zinc-500">
-                        <span className="truncate max-w-[200px] sm:max-w-[180px]">
-                          {deployment.url}
-                        </span>
-                        <span>•</span>
-                        <span>{deployment.createdAt}</span>
-                      </div>
-                    </div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Github className="size-3.5 text-zinc-500 flex-shrink-0" />
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
+                    <span className="text-sm font-medium text-zinc-300 truncate">
+                      {deployment.repo}
+                    </span>
+                    <span className="hidden sm:inline text-zinc-700">/</span>
+                    <span className="text-[11px] text-zinc-500 truncate opacity-60">
+                      {deployment.url.replace("https://github.com/", "")}
+                    </span>
                   </div>
-                  
-                  <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(deployment.status)}
-                      <Badge variant={getStatusBadgeVariant(deployment.status)} className="capitalize font-medium text-[10px] sm:text-xs">
-                        {deployment.status}
-                      </Badge>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-300">
-                      <ExternalLink className="size-4" />
+                </div>
+                
+                <div className="flex items-center justify-between sm:justify-end gap-6 mt-2 sm:mt-0">
+                  <div className="flex items-center gap-2 min-w-[80px]">
+                    {getStatusIcon(deployment.status)}
+                    <span className="text-[11px] text-zinc-400 capitalize">
+                      {deployment.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-zinc-600 font-mono">
+                      {deployment.createdAt}
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-600 hover:text-zinc-400 hover:bg-transparent transition-opacity sm:opacity-0 group-hover:opacity-100">
+                      <ExternalLink className="size-3" />
                     </Button>
                   </div>
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         </div>
