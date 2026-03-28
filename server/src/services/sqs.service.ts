@@ -65,6 +65,7 @@ class SQSService {
                 gitURL: payload.gitURL,
                 projectId: payload.projectId,
                 deploymentId: payload.deploymentId,
+                projectName: payload.projectName,
               });
 
               // Delete message after successful trigger

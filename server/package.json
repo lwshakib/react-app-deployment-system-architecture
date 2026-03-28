@@ -12,7 +12,8 @@
     "db:setup:kafka": "bun run src/scripts/setup-kafka.ts",
     "db:setup:s3": "bun run src/scripts/setup-s3.ts",
     "db:setup:sqs": "bun run src/scripts/setup-sqs.ts",
-    "db:setup:all": "bun run db:setup:postgres && bun run db:setup:clickhouse && bun run db:setup:kafka && bun run db:setup:s3 && bun run db:setup:sqs"
+    "db:setup:ecs": "bun run src/scripts/setup-ecs.ts",
+    "db:setup:all": "bun run db:setup:postgres && bun run db:setup:clickhouse && bun run db:setup:kafka && bun run db:setup:s3 && bun run db:setup:sqs && bun run db:setup:ecs"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -23,7 +24,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@aws-sdk/client-ec2": "^3.1019.0",
+    "@aws-sdk/client-ecr": "^3.1019.0",
     "@aws-sdk/client-ecs": "^3.1019.0",
+    "@aws-sdk/client-iam": "^3.1019.0",
     "@aws-sdk/client-s3": "^3.1019.0",
     "@aws-sdk/client-sqs": "^3.1019.0",
     "@aws-sdk/s3-request-presigner": "^3.1019.0",

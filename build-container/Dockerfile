@@ -1,14 +1,17 @@
 # Use Node.js 20 as the base for maximum compatibility with generic project builds
 FROM node:20-slim
 
-# Install system dependencies (git for cloning, curl for health checks)
+# Install system dependencies (git for cloning, curl for health checks, unzip for bun)
 RUN apt-get update && \
-    apt-get install -y git curl && \
+    apt-get install -y git curl unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Bun for high-performance script execution (optional but used in orchestration)
+# Install Bun for high-performance script execution
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:$PATH"
+
+# Install pnpm for broad package manager support
+RUN npm install -g pnpm
 
 WORKDIR /home/app
 
@@ -19,8 +22,8 @@ RUN npm install
 # Copy application source and orchestration script
 COPY index.ts main.sh ./
 
-# Note: ensure kafka.pem is present in the build directory if required by your broker
-# COPY kafka.pem kafka.pem 
+# Ensure kafka.pem is present in the build directory if required by your broker
+COPY kafka_ca.pem kafka_ca.pem 
 
 # Make the orchestration script executable
 RUN chmod +x main.sh index.ts

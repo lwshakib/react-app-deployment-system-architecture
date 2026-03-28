@@ -28,8 +28,9 @@ class ECSService {
     gitURL: string;
     projectId: string;
     deploymentId: string;
+    projectName: string;
   }) {
-    const { gitURL, projectId, deploymentId } = params;
+    const { gitURL, projectId, deploymentId, projectName } = params;
 
     const command = new RunTaskCommand({
       cluster: process.env.ECS_CLUSTER_ARN,
@@ -51,6 +52,7 @@ class ECSService {
               { name: "GIT_REPOSITORY__URL", value: gitURL },
               { name: "PROJECT_ID", value: projectId },
               { name: "DEPLOYMENT_ID", value: deploymentId },
+              { name: "PROJECT_NAME", value: projectName },
             ],
           },
         ],

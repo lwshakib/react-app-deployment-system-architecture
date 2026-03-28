@@ -19,6 +19,7 @@ const s3Client = new S3Client({
 });
 
 const PROJECT_ID = process.env.PROJECT_ID!;
+const PROJECT_NAME = process.env.PROJECT_NAME || PROJECT_ID;
 const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID!;
 const KAFKA_BROKER = process.env.KAFKA_BROKER!;
 const S3_BUCKET = process.env.S3_BUCKET_NAME!;
@@ -89,12 +90,7 @@ async function init() {
   await publishLog("📦 Build Started...");
   
   const outDirPath = path.join(__dirname, "output");
-  // Some projects output to 'dist', others to 'build'
-  let distFolderPath = path.join(outDirPath, "dist");
-  if (!fs.existsSync(distFolderPath)) {
-    distFolderPath = path.join(outDirPath, "build");
-  }
-
+  
   // Build Command: Clean, Install, Build
   const buildCommand = `cd ${outDirPath} && rm -rf node_modules package-lock.json && npm install && npm run build`;
   
@@ -114,16 +110,20 @@ async function init() {
       process.exit(1);
     }
 
-    // Checking for build output folder again
+    await publishLog("✅ Build Complete");
+
+    // Detect output folder dynamically after build
+    let distFolderPath = path.join(outDirPath, "dist");
     if (!fs.existsSync(distFolderPath)) {
-       // Try 'out' (Next.js) if dist/build not found
-       const outFolder = path.join(outDirPath, "out");
-       if (fs.existsSync(outFolder)) {
-         distFolderPath = outFolder;
-       } else {
-         await publishLog(`❌ ERROR: Build output folder not found at ${distFolderPath}`);
-         process.exit(1);
-       }
+      distFolderPath = path.join(outDirPath, "build");
+    }
+    if (!fs.existsSync(distFolderPath)) {
+      distFolderPath = path.join(outDirPath, "out");
+    }
+
+    if (!fs.existsSync(distFolderPath)) {
+      await publishLog(`❌ ERROR: No build output folder found (checked dist, build, out)`);
+      process.exit(1);
     }
 
     await publishLog("✅ Build Complete");
@@ -134,11 +134,13 @@ async function init() {
 
       for (const filePath of distFolderContents) {
         const fileKey = path.relative(distFolderPath, filePath).replace(/\\/g, "/"); // Ensure POSIX paths
-        
+        const fileBuffer = fs.readFileSync(filePath);
+
         const command = new PutObjectCommand({
           Bucket: S3_BUCKET,
-          Key: `__outputs/${PROJECT_ID}/${fileKey}`,
-          Body: fs.createReadStream(filePath),
+          Key: `__outputs/${PROJECT_NAME}/${fileKey}`, 
+          Body: fileBuffer,
+          ContentLength: fileBuffer.length,
           ContentType: mime.lookup(filePath) || "application/octet-stream",
         });
 

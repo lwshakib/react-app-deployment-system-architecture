@@ -151,6 +151,7 @@ app.post("/deploy", async (req: Request, res: Response) => {
       gitURL: project.git_url,
       projectId,
       deploymentId: deployment.id,
+      projectName: project.sub_domain,
     });
 
     res.json({ status: "queued", data: { deploymentId: deployment.id } });
