@@ -3,11 +3,13 @@ import { kafkaService } from "../services/kafka.service";
 async function setupKafka() {
   console.log("🚀 Starting Kafka setup...");
 
-  const TOPIC = "container-logs";
+  const TOPICS = ["container-logs", "deployment-status"];
 
   try {
-    await kafkaService.createTopic(TOPIC);
-    console.log(`✅ Kafka topic '${TOPIC}' is ready.`);
+    for (const topic of TOPICS) {
+      await kafkaService.createTopic(topic);
+      console.log(`✅ Kafka topic '${topic}' is ready.`);
+    }
   } catch (error) {
     console.error("❌ Kafka setup failed:", error);
     process.exit(1);

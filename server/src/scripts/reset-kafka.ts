@@ -3,16 +3,19 @@ import { kafkaService } from "../services/kafka.service";
 async function resetKafka() {
   console.log("🔥 Resetting Kafka topics...");
 
-  const TOPIC = "container-logs";
+  const TOPICS = ["container-logs", "deployment-status"];
 
   try {
     const admin = await kafkaService.getAdmin();
     const existingTopics = await admin.listTopics();
-    if (existingTopics.includes(TOPIC)) {
-      await admin.deleteTopics({ topics: [TOPIC] });
-      console.log(`✅ Kafka topic '${TOPIC}' deleted successfully.`);
-    } else {
-      console.log(`ℹ️ Topic '${TOPIC}' does not exist, skipping.`);
+    
+    for (const topic of TOPICS) {
+      if (existingTopics.includes(topic)) {
+        await admin.deleteTopics({ topics: [topic] });
+        console.log(`✅ Kafka topic '${topic}' deleted successfully.`);
+      } else {
+        console.log(`ℹ️ Topic '${topic}' does not exist, skipping.`);
+      }
     }
   } catch (error) {
     console.error("❌ Kafka reset failed:", error);
