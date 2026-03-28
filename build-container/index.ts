@@ -1,1 +1,161 @@
-console.log("Hello via Bun!");
+import { exec } from "child_process";
+import path from "path";
+import fs from "fs";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import mime from "mime-types";
+import { Kafka, type Producer } from "kafkajs";
+
+// AWS Configuration
+const REGION = process.env.AWS_REGION!;
+const ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID!;
+const SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY!;
+
+const s3Client = new S3Client({
+  region: REGION,
+  credentials: {
+    accessKeyId: ACCESS_KEY_ID,
+    secretAccessKey: SECRET_ACCESS_KEY,
+  },
+});
+
+const PROJECT_ID = process.env.PROJECT_ID!;
+const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID!;
+const KAFKA_BROKER = process.env.KAFKA_BROKER!;
+const S3_BUCKET = process.env.S3_BUCKET_NAME!;
+
+// Kafka Configuration
+const kafka = new Kafka({
+  clientId: `docker-build-server-${DEPLOYMENT_ID}`,
+  brokers: [KAFKA_BROKER],
+  ssl: process.env.KAFKA_CA_FILE ? {
+    ca: [fs.readFileSync(path.join(__dirname, process.env.KAFKA_CA_FILE), "utf-8")],
+  } : undefined,
+  sasl: {
+    username: process.env.KAFKA_USERNAME!,
+    password: process.env.KAFKA_PASSWORD!,
+    mechanism: "plain",
+  },
+});
+
+let producer: Producer;
+
+async function publishLog(log: string) {
+  console.log(log);
+  if (!producer) return;
+  
+  try {
+    await producer.send({
+      topic: "container-logs",
+      messages: [
+        {
+          key: "log",
+          value: JSON.stringify({ PROJECT_ID, DEPLOYMENT_ID, log }),
+        },
+      ],
+    });
+  } catch (err) {
+    console.error("❌ Failed to publish log to Kafka:", err);
+  }
+}
+
+async function getAllFiles(dirPath: string): Promise<string[]> {
+  let results: string[] = [];
+  if (!fs.existsSync(dirPath)) return [];
+  
+  const list = fs.readdirSync(dirPath);
+  for (const file of list) {
+    const filePath = path.join(dirPath, file);
+    const stat = fs.lstatSync(filePath);
+    if (stat && stat.isDirectory()) {
+      results = results.concat(await getAllFiles(filePath));
+    } else {
+      results.push(filePath);
+    }
+  }
+  return results;
+}
+
+async function init() {
+  console.log("🚀 Initializing Build Process...");
+  
+  try {
+    producer = kafka.producer();
+    await producer.connect();
+    console.log("✅ Kafka Producer connected");
+  } catch (err) {
+    console.error("❌ Kafka Connection Error:", err);
+  }
+
+  await publishLog("📦 Build Started...");
+  
+  const outDirPath = path.join(__dirname, "output");
+  // Some projects output to 'dist', others to 'build'
+  let distFolderPath = path.join(outDirPath, "dist");
+  if (!fs.existsSync(distFolderPath)) {
+    distFolderPath = path.join(outDirPath, "build");
+  }
+
+  // Build Command: Clean, Install, Build
+  const buildCommand = `cd ${outDirPath} && rm -rf node_modules package-lock.json && npm install && npm run build`;
+  
+  const p = exec(buildCommand);
+
+  p.stdout?.on("data", (data) => {
+    publishLog(data.toString());
+  });
+
+  p.stderr?.on("data", (data) => {
+    publishLog(`stderr: ${data.toString()}`);
+  });
+
+  p.on("exit", async (code) => {
+    if (code !== 0) {
+      await publishLog(`❌ Build failed with exit code ${code}`);
+      process.exit(1);
+    }
+
+    // Checking for build output folder again
+    if (!fs.existsSync(distFolderPath)) {
+       // Try 'out' (Next.js) if dist/build not found
+       const outFolder = path.join(outDirPath, "out");
+       if (fs.existsSync(outFolder)) {
+         distFolderPath = outFolder;
+       } else {
+         await publishLog(`❌ ERROR: Build output folder not found at ${distFolderPath}`);
+         process.exit(1);
+       }
+    }
+
+    await publishLog("✅ Build Complete");
+
+    try {
+      const distFolderContents = await getAllFiles(distFolderPath);
+      await publishLog(`📤 Starting upload to S3 (${distFolderContents.length} files)`);
+
+      for (const filePath of distFolderContents) {
+        const fileKey = path.relative(distFolderPath, filePath).replace(/\\/g, "/"); // Ensure POSIX paths
+        
+        const command = new PutObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: `__outputs/${PROJECT_ID}/${fileKey}`,
+          Body: fs.createReadStream(filePath),
+          ContentType: mime.lookup(filePath) || "application/octet-stream",
+        });
+
+        await s3Client.send(command);
+        await publishLog(`✅ Uploaded: ${fileKey}`);
+      }
+
+      await publishLog("✨ Deployment Successful! Done.");
+      process.exit(0);
+    } catch (err: any) {
+      await publishLog(`❌ ERROR during upload: ${err.message}`);
+      process.exit(1);
+    }
+  });
+}
+
+init().catch(async (err) => {
+    await publishLog(`❌ ERROR in init: ${err.message}`);
+    process.exit(1);
+});

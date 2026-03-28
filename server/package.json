@@ -6,20 +6,38 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "build": "tsc",
-    "start": "bun run dist/index.js"
+    "start": "bun run dist/index.js",
+    "db:setup:postgres": "bun run src/scripts/setup-postgres.ts",
+    "db:setup:clickhouse": "bun run src/scripts/setup-clickhouse.ts",
+    "db:setup:kafka": "bun run src/scripts/setup-kafka.ts",
+    "db:setup:s3": "bun run src/scripts/setup-s3.ts",
+    "db:setup:sqs": "bun run src/scripts/setup-sqs.ts",
+    "db:setup:all": "bun run db:setup:postgres && bun run db:setup:clickhouse && bun run db:setup:kafka && bun run db:setup:s3 && bun run db:setup:sqs"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/socket.io": "^3.0.2",
+    "@types/uuid": "^11.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@aws-sdk/client-ecs": "^3.1019.0",
     "@aws-sdk/client-s3": "^3.1019.0",
+    "@aws-sdk/client-sqs": "^3.1019.0",
     "@aws-sdk/s3-request-presigner": "^3.1019.0",
+    "@clickhouse/client": "^1.18.2",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/pg": "^8.20.0",
+    "cors": "^2.8.6",
     "express": "^5.2.1",
-    "pg": "^8.20.0"
+    "kafkajs": "^2.2.4",
+    "pg": "^8.20.0",
+    "random-word-slugs": "^0.1.7",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
   }
 }

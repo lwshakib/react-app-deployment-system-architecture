@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Rocket, Cpu, CheckCircle2, Clock, Globe } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Rocket, Cpu, CheckCircle2, Clock, Globe, Trash2 } from "lucide-react";
 import { FaGithub as Github } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,51 +13,82 @@ interface Deployment {
   url: string;
   repo: string;
   status: "queued" | "building" | "ready" | "failed";
-  createdAt: string;
+  created_at: string;
 }
+
+const API_BASE_URL = "http://localhost:8000/api";
 
 export default function Home() {
   const [githubUrl, setGithubUrl] = useState("");
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleDeploy = () => {
-    if (!githubUrl || !githubUrl.includes("github.com")) return;
-
-    // Extract repo name from URL
-    const repoName = githubUrl.split("/").pop() || "unknown-repo";
-
-    const newDeployment: Deployment = {
-      id: Math.random().toString(36).substring(7),
-      url: githubUrl,
-      repo: repoName,
-      status: "queued",
-      createdAt: new Date().toLocaleTimeString(),
-    };
-
-    setDeployments((prev) => [newDeployment, ...prev]);
-    setGithubUrl("");
-
-    // Simulate deployment progression
-    setTimeout(() => {
-      updateStatus(newDeployment.id, "building");
-      setTimeout(() => {
-        updateStatus(newDeployment.id, "ready");
-      }, 3000);
-    }, 1500);
+  const fetchDeployments = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/deployments`);
+      if (response.ok) {
+        const data = await response.json();
+        setDeployments(data);
+      }
+    } catch (error) {
+      console.error("Error fetching deployments:", error);
+    }
   };
 
-  const updateStatus = (id: string, status: Deployment["status"]) => {
-    setDeployments((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status } : d))
-    );
+  useEffect(() => {
+    fetchDeployments();
+    // Poll for status updates every 2 seconds
+    const interval = setInterval(fetchDeployments, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleDeploy = async () => {
+    if (!githubUrl || !githubUrl.includes("github.com")) return;
+
+    setLoading(true);
+    try {
+      // Extract repo name from URL
+      const repoName = githubUrl.split("/").pop() || "unknown-repo";
+
+      const response = await fetch(`${API_BASE_URL}/deployments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo: repoName, url: githubUrl }),
+      });
+
+      if (response.ok) {
+        setGithubUrl("");
+        fetchDeployments();
+      }
+    } catch (error) {
+      console.error("Error creating deployment:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this deployment?")) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/deployments/${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        fetchDeployments();
+      }
+    } catch (error) {
+      console.error("Error deleting deployment:", error);
+    }
   };
 
   const getStatusIcon = (status: Deployment["status"]) => {
     switch (status) {
-      case "queued": return <Clock className="size-4 text-zinc-500 animate-pulse" />;
-      case "building": return <Cpu className="size-4 text-blue-500 animate-spin" />;
-      case "ready": return <CheckCircle2 className="size-4 text-green-500" />;
-      case "failed": return <div className="size-2 rounded-full bg-red-500" />;
+      case "queued": return <Clock className="size-3 text-zinc-500 animate-pulse" />;
+      case "building": return <Cpu className="size-3 text-blue-500 animate-spin" />;
+      case "ready": return <CheckCircle2 className="size-3 text-green-500" />;
+      case "failed": return <div className="size-1.5 rounded-full bg-red-500" />;
     }
   };
 
@@ -105,9 +136,9 @@ export default function Home() {
           <Button 
             className="h-10 px-6 bg-zinc-100 text-zinc-950 hover:bg-zinc-200"
             onClick={handleDeploy}
-            disabled={!githubUrl}
+            disabled={!githubUrl || loading}
           >
-            Deploy
+            {loading ? "Deploying..." : "Deploy"}
           </Button>
         </div>
       </div>
@@ -126,7 +157,7 @@ export default function Home() {
             {deployments.map((deployment) => (
               <div 
                 key={deployment.id} 
-                className="group flex flex-col sm:flex-row sm:items-center justify-between py-3 px-1 border-b border-zinc-900 last:border-0 hover:bg-zinc-900/30 rounded-sm transition-colors"
+                className="group flex flex-col sm:flex-row sm:items-center justify-between py-3 px-1 border-b border-zinc-900 last:border-0 hover:bg-zinc-900/10 rounded-sm transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Github className="size-3.5 text-zinc-500 flex-shrink-0" />
@@ -150,11 +181,25 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-zinc-600 font-mono">
-                      {deployment.createdAt}
+                      {new Date(deployment.created_at).toLocaleTimeString()}
                     </span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-600 hover:text-zinc-400 hover:bg-transparent transition-opacity sm:opacity-0 group-hover:opacity-100">
-                      <ExternalLink className="size-3" />
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 text-zinc-600 hover:text-red-400 hover:bg-transparent"
+                        onClick={() => handleDelete(deployment.id)}
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6 text-zinc-600 hover:text-zinc-400 hover:bg-transparent"
+                      >
+                        <ExternalLink className="size-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
