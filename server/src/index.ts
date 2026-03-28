@@ -10,12 +10,11 @@ import { sqsService } from "./services/sqs.service";
 import { kafkaService } from "./services/kafka.service";
 import { clickHouseService } from "./services/clickhouse.service";
 import { postgresService } from "./services/postgres.service";
+import { eventBus } from "./services/event-bus.service";
 
 const app = express();
 const port = process.env.PORT || 8000;
 const socketPort = 9002;
-
-const eventBus = new EventEmitter();
 
 // AWS S3 Client
 const s3Client = new S3Client({

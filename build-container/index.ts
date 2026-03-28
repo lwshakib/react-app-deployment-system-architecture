@@ -103,15 +103,42 @@ async function init() {
     await producer.connect();
     console.log("✅ Kafka Producer connected");
   } catch (err) {
-    console.error("❌ Kafka Connection Error:", err);
+    console.error("❌ Kafka Connection Error (logs will not be streamed):", err);
   }
 
-  await publishLog("📦 Build Started...");
-  
+  const GIT_URL = process.env.GIT_REPOSITORY__URL;
+  if (!GIT_URL) {
+    await publishLog("❌ ERROR: GIT_REPOSITORY__URL is missing!");
+    await publishStatus("FAILED");
+    process.exit(1);
+  }
+
   const outDirPath = path.join(__dirname, "output");
   
-  // Build Command: Clean, Install, Build
-  const buildCommand = `cd ${outDirPath} && rm -rf node_modules package-lock.json && npm install && npm run build`;
+  // 1. Clone the repository
+  await publishLog(`📂 Cloning repository: ${GIT_URL}...`);
+  
+  const cloneCmd = `git clone ${GIT_URL} ${outDirPath}`;
+  
+  await new Promise((resolve, reject) => {
+    const p = exec(cloneCmd);
+    p.stdout?.on("data", (data) => publishLog(data.toString()));
+    p.stderr?.on("data", (data) => publishLog(data.toString()));
+    p.on("exit", (code) => {
+      if (code === 0) {
+        publishLog("✅ Repository cloned successfully.");
+        resolve(true);
+      } else {
+        publishLog(`❌ Failed to clone repository with code ${code}`);
+        reject(new Error(`Clone failed with code ${code}`));
+      }
+    });
+  });
+
+  // 2. Build: Install and Bundle
+  await publishLog("📦 Starting build (npm install && npm run build)...");
+  
+  const buildCommand = `cd ${outDirPath} && npm install && npm run build`;
   
   const p = exec(buildCommand);
 
@@ -120,7 +147,7 @@ async function init() {
   });
 
   p.stderr?.on("data", (data) => {
-    publishLog(`stderr: ${data.toString()}`);
+    publishLog(data.toString());
   });
 
   p.on("exit", async (code) => {

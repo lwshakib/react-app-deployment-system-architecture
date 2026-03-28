@@ -1,6 +1,8 @@
 import { SQSClient, SendMessageCommand, ReceiveMessageCommand, DeleteMessageCommand } from "@aws-sdk/client-sqs";
 import { ecsService } from "./ecs.service";
 import { dockerService } from "./docker.service";
+import { postgresService } from "./postgres.service";
+import { eventBus } from "./event-bus.service";
 
 class SQSService {
   private client: SQSClient;
@@ -69,6 +71,14 @@ class SQSService {
                 deploymentId: payload.deploymentId,
                 projectName: payload.projectName,
               };
+
+              // Update status to BUILDING immediately
+              try {
+                await postgresService.query("UPDATE deployments SET status = 'BUILDING' WHERE id = $1", [payload.deploymentId]);
+                eventBus.emit("deployment-status-changed");
+              } catch (err) {
+                console.error("❌ Failed to update status to BUILDING:", err);
+              }
 
               if (isDev) {
                 // Trigger Local Docker Task (Faster, free, perfect for dev)

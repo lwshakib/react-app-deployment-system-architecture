@@ -7,6 +7,18 @@ import { FaGithub as Github } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
+
 interface Deployment {
   id: string;
   url: string;
@@ -67,10 +79,7 @@ export default function Home() {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); // Don't navigate when deleting
-    if (!confirm("Are you sure?")) return;
-
+  const handleDelete = async (id: string) => {
     try {
       await fetch(`${API_BASE_URL}/deployments/${id}`, { method: "DELETE" });
     } catch (error) {
@@ -128,43 +137,56 @@ export default function Home() {
 
       {/* Deployment List */}
       {deployments.length > 0 && (
-        <div className="w-full max-w-2xl space-y-2">
-          <div className="flex items-center justify-between border-b border-zinc-900 pb-1 mb-4 text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
-            <div className="flex items-center gap-1.5"><Globe className="size-3" /> Recent Projects</div>
-          </div>
-          
+        <div className="w-full max-w-xl px-4 sm:px-0">
           <div className="flex flex-col">
             {deployments.map((deployment) => (
               <div 
                 key={deployment.id} 
                 onClick={() => router.push(`/project/${deployment.id}`)}
-                className="group flex items-center justify-between py-4 px-2 hover:bg-zinc-900/50 rounded-lg transition-all cursor-pointer border border-transparent hover:border-zinc-800/50 mb-1"
+                className="group flex items-center justify-between py-3 hover:bg-zinc-900/40 transition-all cursor-pointer px-4 rounded-lg"
               >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="bg-zinc-900 p-2 rounded-md border border-zinc-800 group-hover:border-zinc-700 transition-colors">
-                    <Github className="size-4 text-zinc-400" />
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-medium text-zinc-200 truncate">{deployment.repo}</span>
-                    <span className="text-[10px] text-zinc-500 truncate opacity-60">ID: {deployment.id.split("-")[0]}...</span>
-                  </div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Github className="size-3.5 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+                  <span className="text-[13px] font-medium text-zinc-300 truncate">{deployment.repo}</span>
                 </div>
                 
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2 min-w-[80px]">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center">
                     {getStatusIcon(deployment.status)}
-                    <span className="text-[11px] text-zinc-400 capitalize">{deployment.status}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-zinc-600 hover:text-red-400 hover:bg-red-400/10"
-                      onClick={(e) => handleDelete(e, deployment.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                    <ChevronRight className="size-4 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+                  <div className="flex items-center">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-zinc-600 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete the deployment for <span className="text-zinc-100 font-medium">{deployment.repo}</span> and remove all associated build artifacts from S3.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(deployment.id);
+                            }}
+                          >
+                            Delete Deployment
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </div>
