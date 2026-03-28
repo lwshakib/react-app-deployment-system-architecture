@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Rocket, Cpu, CheckCircle2, Clock, Globe, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Rocket, Cpu, CheckCircle2, Clock, Globe, Trash2, ChevronRight } from "lucide-react";
 import { FaGithub as Github } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 interface Deployment {
   id: string;
@@ -16,30 +15,33 @@ interface Deployment {
   created_at: string;
 }
 
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 export default function Home() {
+  const router = useRouter();
   const [githubUrl, setGithubUrl] = useState("");
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchDeployments = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/deployments`);
-      if (response.ok) {
-        const data = await response.json();
-        setDeployments(data);
-      }
-    } catch (error) {
-      console.error("Error fetching deployments:", error);
-    }
-  };
-
   useEffect(() => {
-    fetchDeployments();
-    // Poll for status updates every 2 seconds
-    const interval = setInterval(fetchDeployments, 2000);
-    return () => clearInterval(interval);
+    // SSE: Stream deployments for real-time dashboard updates
+    const eventSource = new EventSource(`${API_BASE_URL}/deployments/stream`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setDeployments(data);
+      } catch (err) {
+        console.error("Error parsing SSE data:", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("SSE Connection Error:", err);
+      eventSource.close();
+    };
+
+    return () => eventSource.close();
   }, []);
 
   const handleDeploy = async () => {
@@ -47,8 +49,7 @@ export default function Home() {
 
     setLoading(true);
     try {
-      // Extract repo name from URL
-      const repoName = githubUrl.split("/").pop() || "unknown-repo";
+      const repoName = githubUrl.split("/").pop()?.replace(".git", "") || "unknown-repo";
 
       const response = await fetch(`${API_BASE_URL}/deployments`, {
         method: "POST",
@@ -58,7 +59,6 @@ export default function Home() {
 
       if (response.ok) {
         setGithubUrl("");
-        fetchDeployments();
       }
     } catch (error) {
       console.error("Error creating deployment:", error);
@@ -67,17 +67,12 @@ export default function Home() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this deployment?")) return;
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Don't navigate when deleting
+    if (!confirm("Are you sure?")) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/deployments/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        fetchDeployments();
-      }
+      await fetch(`${API_BASE_URL}/deployments/${id}`, { method: "DELETE" });
     } catch (error) {
       console.error("Error deleting deployment:", error);
     }
@@ -92,15 +87,6 @@ export default function Home() {
     }
   };
 
-  const getStatusBadgeVariant = (status: Deployment["status"]) => {
-    switch (status) {
-      case "queued": return "secondary";
-      case "building": return "default";
-      case "ready": return "outline";
-      case "failed": return "destructive";
-    }
-  };
-
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-950 text-zinc-50 font-sans p-6 sm:p-20">
       
@@ -111,16 +97,13 @@ export default function Home() {
             <Rocket className="size-6 text-zinc-100" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-zinc-100">
-              Deploy in Seconds
-            </h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-100">Deploy in Seconds</h1>
             <p className="text-base text-zinc-400 max-w-md mx-auto">
-              The fastest way to deploy your React applications directly from GitHub. Simple and secure.
+              Real-time infrastructure for your React applications.
             </p>
           </div>
         </div>
 
-        {/* Input Box */}
         <div className="flex flex-col sm:flex-row gap-3 w-full mt-4">
           <div className="relative flex-1">
             <Github className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
@@ -146,60 +129,42 @@ export default function Home() {
       {/* Deployment List */}
       {deployments.length > 0 && (
         <div className="w-full max-w-2xl space-y-2">
-          <div className="flex items-center justify-between border-b border-zinc-900 pb-1 mb-4">
-            <h2 className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
-              <Globe className="size-3" />
-              Recent
-            </h2>
+          <div className="flex items-center justify-between border-b border-zinc-900 pb-1 mb-4 text-[10px] font-medium text-zinc-500 uppercase tracking-wider">
+            <div className="flex items-center gap-1.5"><Globe className="size-3" /> Recent Projects</div>
           </div>
           
           <div className="flex flex-col">
             {deployments.map((deployment) => (
               <div 
                 key={deployment.id} 
-                className="group flex flex-col sm:flex-row sm:items-center justify-between py-3 px-1 border-b border-zinc-900 last:border-0 hover:bg-zinc-900/10 rounded-sm transition-colors"
+                onClick={() => router.push(`/project/${deployment.id}`)}
+                className="group flex items-center justify-between py-4 px-2 hover:bg-zinc-900/50 rounded-lg transition-all cursor-pointer border border-transparent hover:border-zinc-800/50 mb-1"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Github className="size-3.5 text-zinc-500 flex-shrink-0" />
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
-                    <span className="text-sm font-medium text-zinc-300 truncate">
-                      {deployment.repo}
-                    </span>
-                    <span className="hidden sm:inline text-zinc-700">/</span>
-                    <span className="text-[11px] text-zinc-500 truncate opacity-60">
-                      {deployment.url.replace("https://github.com/", "")}
-                    </span>
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="bg-zinc-900 p-2 rounded-md border border-zinc-800 group-hover:border-zinc-700 transition-colors">
+                    <Github className="size-4 text-zinc-400" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium text-zinc-200 truncate">{deployment.repo}</span>
+                    <span className="text-[10px] text-zinc-500 truncate opacity-60">ID: {deployment.id.split("-")[0]}...</span>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-between sm:justify-end gap-6 mt-2 sm:mt-0">
+                <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2 min-w-[80px]">
                     {getStatusIcon(deployment.status)}
-                    <span className="text-[11px] text-zinc-400 capitalize">
-                      {deployment.status}
-                    </span>
+                    <span className="text-[11px] text-zinc-400 capitalize">{deployment.status}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-zinc-600 font-mono">
-                      {new Date(deployment.created_at).toLocaleTimeString()}
-                    </span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-6 w-6 text-zinc-600 hover:text-red-400 hover:bg-transparent"
-                        onClick={() => handleDelete(deployment.id)}
-                      >
-                        <Trash2 className="size-3" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-6 w-6 text-zinc-600 hover:text-zinc-400 hover:bg-transparent"
-                      >
-                        <ExternalLink className="size-3" />
-                      </Button>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-zinc-600 hover:text-red-400 hover:bg-red-400/10"
+                      onClick={(e) => handleDelete(e, deployment.id)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                    <ChevronRight className="size-4 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
                   </div>
                 </div>
               </div>

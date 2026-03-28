@@ -59,6 +59,25 @@ async function publishLog(log: string) {
   }
 }
 
+async function publishStatus(status: "READY" | "FAILED") {
+  console.log(`📡 Publishing final status: ${status}`);
+  if (!producer) return;
+  
+  try {
+    await producer.send({
+      topic: "deployment-status",
+      messages: [
+        {
+          key: "status",
+          value: JSON.stringify({ PROJECT_ID, DEPLOYMENT_ID, status }),
+        },
+      ],
+    });
+  } catch (err) {
+    console.error(`❌ Failed to publish ${status} status to Kafka:`, err);
+  }
+}
+
 async function getAllFiles(dirPath: string): Promise<string[]> {
   let results: string[] = [];
   if (!fs.existsSync(dirPath)) return [];
@@ -107,6 +126,7 @@ async function init() {
   p.on("exit", async (code) => {
     if (code !== 0) {
       await publishLog(`❌ Build failed with exit code ${code}`);
+      await publishStatus("FAILED");
       process.exit(1);
     }
 
@@ -123,6 +143,7 @@ async function init() {
 
     if (!fs.existsSync(distFolderPath)) {
       await publishLog(`❌ ERROR: No build output folder found (checked dist, build, out)`);
+      await publishStatus("FAILED");
       process.exit(1);
     }
 
@@ -149,9 +170,11 @@ async function init() {
       }
 
       await publishLog("✨ Deployment Successful! Done.");
+      await publishStatus("READY");
       process.exit(0);
     } catch (err: any) {
       await publishLog(`❌ ERROR during upload: ${err.message}`);
+      await publishStatus("FAILED");
       process.exit(1);
     }
   });
@@ -159,5 +182,6 @@ async function init() {
 
 init().catch(async (err) => {
     await publishLog(`❌ ERROR in init: ${err.message}`);
+    await publishStatus("FAILED");
     process.exit(1);
 });

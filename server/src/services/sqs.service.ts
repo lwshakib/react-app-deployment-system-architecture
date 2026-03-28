@@ -1,5 +1,6 @@
 import { SQSClient, SendMessageCommand, ReceiveMessageCommand, DeleteMessageCommand } from "@aws-sdk/client-sqs";
 import { ecsService } from "./ecs.service";
+import { dockerService } from "./docker.service";
 
 class SQSService {
   private client: SQSClient;
@@ -60,13 +61,24 @@ class SQSService {
               const payload = JSON.parse(message.Body);
               console.log("📥 Received deployment request from SQS:", payload.deploymentId);
 
-              // Trigger ECS Task
-              await ecsService.runTask({
+              const isDev = process.env.NODE_ENV === "development";
+              
+              const taskParams = {
                 gitURL: payload.gitURL,
                 projectId: payload.projectId,
                 deploymentId: payload.deploymentId,
                 projectName: payload.projectName,
-              });
+              };
+
+              if (isDev) {
+                // Trigger Local Docker Task (Faster, free, perfect for dev)
+                console.log(`🏠 Development Mode: Starting local Docker container build...`);
+                await dockerService.runTask(taskParams);
+              } else {
+                // Trigger AWS ECS Task (Production-grade, cloud-based)
+                console.log(`🌩️ Deployment Mode: Triggering AWS ECS task...`);
+                await ecsService.runTask(taskParams);
+              }
 
               // Delete message after successful trigger
               await this.client.send(new DeleteMessageCommand({
