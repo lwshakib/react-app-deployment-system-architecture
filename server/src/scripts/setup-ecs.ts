@@ -21,6 +21,7 @@ const ecsClient = new ECSClient({ region, credentials });
 const ecrClient = new ECRClient({ region, credentials });
 const iamClient = new IAMClient({ region, credentials });
 const ec2Client = new EC2Client({ region, credentials });
+const CONTAINER_NAME = "build-container";
 
 async function getOrCreateRole(roleName: string, assumeRolePolicyDocument: string) {
   try {
@@ -156,13 +157,13 @@ async function setupECS() {
         taskRoleArn,
         containerDefinitions: [
             {
-                name: "build-container",
+                name: CONTAINER_NAME,
                 image: containerImageUri,
                 essential: true,
                 logConfiguration: {
                     logDriver: "awslogs",
                     options: {
-                        "awslogs-group": "/ecs/react-app-deploy-task",
+                        "awslogs-group": `/ecs/${CONTAINER_NAME}`,
                         "awslogs-region": region,
                         "awslogs-stream-prefix": "ecs"
                     }
@@ -196,7 +197,7 @@ async function setupECS() {
 
     envContent = envContent.replace(/\n?# \[AUTOMATED - ECS\][\s\S]*?(?=\n# |$)/g, "");
     
-    const ecsKeys = ["ECS_CLUSTER_ARN", "ECS_TASK_DEFINITION_ARN", "ECS_SUBNETS", "ECS_SECURITY_GROUPS"];
+    const ecsKeys = ["ECS_CLUSTER_ARN", "ECS_TASK_DEFINITION_ARN", "ECS_CONTAINER_NAME", "ECS_SUBNETS", "ECS_SECURITY_GROUPS"];
     ecsKeys.forEach(key => {
         envContent = envContent.replace(new RegExp(`^${key}=.*\\n?`, 'gm'), '');
     });
@@ -207,6 +208,7 @@ async function setupECS() {
         "# [AUTOMATED - ECS]",
         `ECS_CLUSTER_ARN='${clusterArn}'`,
         `ECS_TASK_DEFINITION_ARN='${taskDefArn}'`,
+        `ECS_CONTAINER_NAME='${CONTAINER_NAME}'`,
         `ECS_SUBNETS='${subnetIds}'`,
         `ECS_SECURITY_GROUPS='${securityGroupId}'`
     ].join("\n");

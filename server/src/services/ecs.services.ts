@@ -9,8 +9,19 @@ class ECSService {
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-    if (!region || !accessKeyId || !secretAccessKey) {
-      throw new Error("❌ AWS environment variables (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) are missing. ECS service cannot be initialized.");
+    const containerName = process.env.ECS_CONTAINER_NAME;
+    const clusterArn = process.env.ECS_CLUSTER_ARN;
+    const taskDefinitionArn = process.env.ECS_TASK_DEFINITION_ARN;
+
+    if (!region || !accessKeyId || !secretAccessKey || !containerName || !clusterArn || !taskDefinitionArn) {
+      throw new Error(`❌ Missing AWS/ECS Configuration: ${[
+        !region && "AWS_REGION",
+        !accessKeyId && "AWS_ACCESS_KEY_ID",
+        !secretAccessKey && "AWS_SECRET_ACCESS_KEY",
+        !containerName && "ECS_CONTAINER_NAME",
+        !clusterArn && "ECS_CLUSTER_ARN",
+        !taskDefinitionArn && "ECS_TASK_DEFINITION_ARN"
+      ].filter(Boolean).join(", ")}`);
     }
 
     this.client = new ECSClient({
@@ -48,7 +59,7 @@ class ECSService {
       overrides: {
         containerOverrides: [
           {
-            name: "builder-image",
+            name: process.env.ECS_CONTAINER_NAME!,
             environment: [
               { name: "GIT_REPOSITORY__URL", value: gitURL },
               { name: "PROJECT_ID", value: projectId },
