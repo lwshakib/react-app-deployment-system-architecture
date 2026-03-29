@@ -84,10 +84,11 @@ apiRouter.get("/deployments/stream", (req: Request, res: Response) => {
         ORDER BY d.created_at DESC
       `;
       const result = await postgresService.query(query);
+      const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
       const data = result.rows.map((row: any) => ({
         id: row.id,
         repo: row.repo,
-        url: `http://${row.sub_domain}.localhost:8080`,
+        url: proxyUrl.replace("://", `://${row.sub_domain}.`),
         status: row.status.toLowerCase(),
         created_at: row.created_at,
       }));
@@ -145,10 +146,11 @@ apiRouter.get("/deployments", async (req: Request, res: Response) => {
       ORDER BY d.created_at DESC
     `;
     const result = await postgresService.query(query);
+    const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
     res.json(result.rows.map((row: any) => ({
       id: row.id,
       repo: row.repo,
-      url: `http://${row.sub_domain}.localhost:9000`,
+      url: proxyUrl.replace("://", `://${row.sub_domain}.`),
       status: row.status.toLowerCase(),
       created_at: row.created_at,
     })));
