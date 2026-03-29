@@ -8,4 +8,4 @@ fi
 
 # Run the build and upload script
 # We're using bun here for high performance and direct TS support
-exec bun run index.ts
+exec bun run src/index.ts

@@ -20,13 +20,14 @@ COPY package*.json ./
 RUN npm install
 
 # Copy application source and orchestration script
-COPY index.ts main.sh ./
+COPY src/ ./src/
+COPY main.sh ./
 
 # Ensure kafka.pem is present in the build directory if required by your broker
 COPY kafka_ca.pem kafka_ca.pem 
 
 # Make the orchestration script executable
-RUN chmod +x main.sh index.ts
+RUN chmod +x main.sh
 
 # Entrypoint: clones repo and executes build script
 ENTRYPOINT [ "/home/app/main.sh" ]
