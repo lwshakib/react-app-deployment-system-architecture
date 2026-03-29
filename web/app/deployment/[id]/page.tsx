@@ -84,8 +84,27 @@ export default function DeploymentDetails() {
       } catch (err) {}
     };
 
+    // SSE: Stream status changes
+    const statusEventSource = new EventSource(`${API_BASE_URL}/deployments/stream`);
+    statusEventSource.onmessage = (event) => {
+      try {
+        const all = JSON.parse(event.data);
+        const current = all.find((d: any) => d.id === deploymentId);
+        if (current) {
+          setDeployment(current);
+          if (current.status === "ready") {
+             // Re-fetch files immediately if it just finished
+             fetch(`${API_BASE_URL}/deployments/${deploymentId}/files`)
+              .then(r => r.json())
+              .then(d => setFiles(d.data.files));
+          }
+        }
+      } catch (err) {}
+    };
+
     return () => {
       logEventSource.close();
+      statusEventSource.close();
     };
   }, [deploymentId]);
 

@@ -106,17 +106,6 @@ export default function ProjectDetails() {
     const latest = deployments[0];
     if (latest && (latest.status === "building" || latest.status === "ready" || latest.status === "failed")) {
       fetchLatestLogsAndFiles(latest.id);
-
-      if (latest.status === "building") {
-        const logEventSource = new EventSource(`${API_BASE_URL}/logs/${latest.id}/stream`);
-        logEventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            setLogs((prev) => [...prev, data.log]);
-          } catch (err) {}
-        };
-        return () => logEventSource.close();
-      }
     }
   }, [deployments]);
 
