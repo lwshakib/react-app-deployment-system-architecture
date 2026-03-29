@@ -1,5 +1,4 @@
-import { exec } from "child_process";
-import path from "path";
+import { spawn } from "child_process";
 import logger from "../logger/winston.logger";
 
 class DockerService {
@@ -14,22 +13,39 @@ class DockerService {
   }) {
     const { gitURL, projectId, deploymentId, projectName } = params;
 
-    const envPath = path.join(process.cwd(), ".env");
+    const envVars = [
+      "AWS_REGION",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "KAFKA_BROKER",
+      "KAFKA_USERNAME",
+      "KAFKA_PASSWORD",
+      "KAFKA_CA_CERT",
+      "S3_BUCKET_NAME"
+    ];
 
-    const dockerCommand = [
-      `docker run --rm`,
-      `--env-file "${envPath}"`,
-      `-e GIT_REPOSITORY__URL="${gitURL}"`,
-      `-e PROJECT_ID="${projectId}"`,
-      `-e DEPLOYMENT_ID="${deploymentId}"`,
-      `-e PROJECT_NAME="${projectName}"`,
-      `build-container:latest`
-    ].join(" ");
+    const args = ["run", "--rm"];
+
+    // Add environment variables from process.env
+    envVars.forEach((key) => {
+      if (process.env[key]) {
+        args.push("-e", `${key}=${process.env[key]}`);
+      }
+    });
+
+    // Add dynamic build parameters
+    args.push("-e", `GIT_REPOSITORY__URL=${gitURL}`);
+    args.push("-e", `PROJECT_ID=${projectId}`);
+    args.push("-e", `DEPLOYMENT_ID=${deploymentId}`);
+    args.push("-e", `PROJECT_NAME=${projectName}`);
+
+    // Add image name
+    args.push("build-container:latest");
 
     logger.info(`🛠️ Triggering local Docker build for project: ${projectName}...`);
 
     return new Promise((resolve, reject) => {
-      const p = exec(dockerCommand);
+      const p = spawn("docker", args);
 
       p.stdout?.on("data", (data) => logger.info(`[Docker Stdout]: ${data}`));
       p.stderr?.on("data", (data) => logger.error(`[Docker Stderr]: ${data}`));
