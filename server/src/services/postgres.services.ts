@@ -1,6 +1,7 @@
 import { Pool, PoolConfig } from 'pg';
 import fs from 'fs';
 import path from 'path';
+import logger from "../logger/winston.logger";
 
 class PostgresService {
   private pool: Pool;
@@ -21,9 +22,9 @@ class PostgresService {
           rejectUnauthorized: true,
           ca,
         };
-        console.log('🔒 Postgres SSL CA certificate loaded from:', caPath);
+        logger.info(`🔒 Postgres SSL CA certificate loaded from: ${caPath}`);
       } catch (error) {
-        console.error('❌ Failed to load Postgres CA certificate:', error);
+        logger.error('❌ Failed to load Postgres CA certificate:', error);
       }
     }
 
@@ -53,7 +54,7 @@ class PostgresService {
     // To be safe, we can extend the config if needed.
 
     this.pool.on('error', (err: Error) => {
-      console.error('Unexpected error on idle PostgreSQL client', err);
+      logger.error('Unexpected error on idle PostgreSQL client', err);
       process.exit(-1);
     });
   }
@@ -68,10 +69,10 @@ class PostgresService {
     try {
       const res = await this.pool.query(text, params);
       const duration = Date.now() - start;
-      console.log('Executed query', { text, duration, rows: res.rowCount });
+      logger.info('Executed query', { text, duration, rows: res.rowCount });
       return res;
     } catch (error) {
-      console.error('Database query error', error);
+      logger.error('Database query error', error);
       throw error;
     }
   }
@@ -81,6 +82,7 @@ class PostgresService {
    */
   async close() {
     await this.pool.end();
+    logger.info("👋 Postgres disconnected");
   }
 }
 

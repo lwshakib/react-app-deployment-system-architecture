@@ -1,4 +1,5 @@
 import { createClient, ClickHouseClient } from "@clickhouse/client";
+import logger from "../logger/winston.logger";
 
 class ClickHouseService {
   private client: ClickHouseClient;
@@ -33,7 +34,7 @@ class ClickHouseService {
       });
       return await resultSet.json();
     } catch (error) {
-      console.error("❌ ClickHouse query error:", error);
+      logger.error("❌ ClickHouse query error:", error);
       throw error;
     }
   }
@@ -44,9 +45,9 @@ class ClickHouseService {
   async exec(query: string) {
     try {
       await this.client.exec({ query });
-      console.log("✅ ClickHouse command executed successfully");
+      logger.info("✅ ClickHouse command executed successfully");
     } catch (error) {
-      console.error("❌ ClickHouse exec error:", error);
+      logger.error("❌ ClickHouse exec error:", error);
       throw error;
     }
   }
@@ -62,7 +63,7 @@ class ClickHouseService {
         format: "JSONEachRow",
       });
     } catch (error) {
-      console.error(`❌ ClickHouse insert error into ${table}:`, error);
+      logger.error(`❌ ClickHouse insert error into ${table}:`, error);
       throw error;
     }
   }
@@ -72,7 +73,7 @@ class ClickHouseService {
    */
   async close() {
     await this.client.close();
-    console.log("👋 ClickHouse disconnected");
+    logger.info("👋 ClickHouse disconnected");
   }
 }
 

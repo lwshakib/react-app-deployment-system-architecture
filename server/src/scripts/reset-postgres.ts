@@ -1,7 +1,8 @@
-import { postgresService } from "../services/postgres.service";
+import { postgresService } from "../services/postgres.services";
+import logger from "../logger/winston.logger";
 
 async function resetPostgres() {
-  console.log("🔥 Resetting Postgres database...");
+  logger.info("🗑️ Resetting Postgres database...");
 
   const resetQuery = `
     DROP TABLE IF EXISTS deployments CASCADE;
@@ -10,13 +11,15 @@ async function resetPostgres() {
 
   try {
     await postgresService.query(resetQuery);
-    console.log("✅ Postgres tables dropped successfully.");
+    logger.info("✅ Postgres tables dropped successfully.");
   } catch (error) {
-    console.error("❌ Postgres reset failed:", error);
+    logger.error("❌ Postgres reset failed:", error);
     process.exit(1);
   } finally {
     await postgresService.close();
   }
 }
 
-resetPostgres();
+resetPostgres().then(() => {
+  process.exit(0);
+});

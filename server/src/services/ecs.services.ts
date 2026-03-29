@@ -1,4 +1,5 @@
 import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
+import logger from "../logger/winston.logger";
 
 class ECSService {
   private client: ECSClient;
@@ -61,10 +62,10 @@ class ECSService {
 
     try {
       const response = await this.client.send(command);
-      console.log("🚀 ECS Task triggered:", response.tasks?.[0]?.taskArn);
+      logger.info(`🚀 ECS Task triggered: ${response.tasks?.[0]?.taskArn}`);
       return response;
     } catch (error) {
-      console.error("❌ ECS Task trigger error:", error);
+      logger.error("❌ ECS Task trigger error:", error);
       throw error;
     }
   }

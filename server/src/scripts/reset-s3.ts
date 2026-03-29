@@ -1,4 +1,5 @@
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand, DeleteBucketCommand } from "@aws-sdk/client-s3";
+import logger from "../logger/winston.logger";
 
 const region = process.env.AWS_REGION;
 const bucketName = process.env.S3_BUCKET_NAME;
@@ -13,7 +14,7 @@ const s3Client = new S3Client({
 
 async function resetS3() {
   if (!bucketName) return;
-  console.log(`🔥 Resetting S3 bucket: ${bucketName}...`);
+  logger.info(`🔥 Resetting S3 bucket: ${bucketName}...`);
 
   try {
     // 1. List all objects
@@ -21,7 +22,7 @@ async function resetS3() {
     const listRes = await s3Client.send(listCommand);
 
     if (listRes.Contents && listRes.Contents.length > 0) {
-      console.log(`🗑️ Deleting ${listRes.Contents.length} objects...`);
+      logger.info(`🗑️ Deleting ${listRes.Contents.length} objects...`);
       const deleteCommand = new DeleteObjectsCommand({
         Bucket: bucketName,
         Delete: {
@@ -33,14 +34,16 @@ async function resetS3() {
 
     // 2. Delete bucket
     await s3Client.send(new DeleteBucketCommand({ Bucket: bucketName }));
-    console.log("✅ S3 bucket deleted successfully.");
+    logger.info("✅ S3 bucket deleted successfully.");
   } catch (error: any) {
     if (error.name === "NoSuchBucket") {
-      console.log("ℹ️ Bucket does not exist, skipping.");
+      logger.info("ℹ️ Bucket does not exist, skipping.");
     } else {
-      console.error("❌ S3 reset failed:", error);
+      logger.error("❌ S3 reset failed:", error);
     }
   }
 }
 
-resetS3();
+resetS3().then(() => {
+  process.exit(0);
+});

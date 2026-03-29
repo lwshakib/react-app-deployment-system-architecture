@@ -1,8 +1,9 @@
 import { SQSClient, SendMessageCommand, ReceiveMessageCommand, DeleteMessageCommand } from "@aws-sdk/client-sqs";
-import { ecsService } from "./ecs.service";
-import { dockerService } from "./docker.service";
-import { postgresService } from "./postgres.service";
-import { eventBus } from "./event-bus.service";
+import { ecsService } from "./ecs.services";
+import { dockerService } from "./docker.services";
+import { postgresService } from "./postgres.services";
+import { eventBus } from "./event-bus.services";
+import logger from "../logger/winston.logger";
 
 class SQSService {
   private client: SQSClient;
@@ -36,23 +37,23 @@ class SQSService {
 
     try {
       const response = await this.client.send(command);
-      console.log("📨 Message pushed to SQS:", response.MessageId);
+      logger.info(`📨 Message pushed to SQS: ${response.MessageId}`);
       return response;
     } catch (error) {
-      console.error("❌ Failed to send message to SQS:", error);
+      logger.error("❌ Failed to send message to SQS:", error);
       throw error;
     }
   }
 
   async startPolling() {
-    console.log(`🎧 Started polling SQS queue: ${this.queueUrl}`);
+    logger.info(`🎧 Started polling SQS queue: ${this.queueUrl}`);
 
     while (true) {
       try {
         const command = new ReceiveMessageCommand({
           QueueUrl: this.queueUrl,
-          MaxNumberOfMessages: 1, // Control concurrency per worker
-          WaitTimeSeconds: 20, // Long polling
+          MaxNumberOfMessages: 1,
+          WaitTimeSeconds: 20,
         });
 
         const response = await this.client.send(command);
@@ -61,7 +62,7 @@ class SQSService {
           for (const message of response.Messages) {
             if (message.Body) {
               const payload = JSON.parse(message.Body);
-              console.log("📥 Received deployment request from SQS:", payload.deploymentId);
+              logger.info(`📥 Received deployment request from SQS: ${payload.deploymentId}`);
 
               const isDev = process.env.NODE_ENV === "development";
               
@@ -72,37 +73,32 @@ class SQSService {
                 projectName: payload.projectName,
               };
 
-              // Update status to BUILDING immediately
               try {
                 await postgresService.query("UPDATE deployments SET status = 'BUILDING' WHERE id = $1", [payload.deploymentId]);
                 eventBus.emit("deployment-status-changed");
               } catch (err) {
-                console.error("❌ Failed to update status to BUILDING:", err);
+                logger.error("❌ Failed to update status to BUILDING:", err);
               }
 
               try {
                 if (isDev) {
-                  // Trigger Local Docker Task (Faster, free, perfect for dev)
-                  console.log(`🏠 Development Mode: Starting local Docker container build...`);
+                  logger.info(`🏠 Development Mode: Starting local Docker container build...`);
                   await dockerService.runTask(taskParams);
                 } else {
-                  // Trigger AWS ECS Task (Production-grade, cloud-based)
-                  console.log(`🌩️ Deployment Mode: Triggering AWS ECS task...`);
+                  logger.info(`🌩️ Deployment Mode: Triggering AWS ECS task...`);
                   await ecsService.runTask(taskParams);
                 }
 
-                // Delete message after successful trigger
                 await this.client.send(new DeleteMessageCommand({
                   QueueUrl: this.queueUrl,
                   ReceiptHandle: message.ReceiptHandle,
                 }));
-                console.log("✅ Message deleted from SQS:", message.MessageId);
+                logger.info(`✅ Message deleted from SQS: ${message.MessageId}`);
               } catch (error) {
-                console.error("❌ Failed to execute build task, updating status to FAILED:", error);
+                logger.error("❌ Failed to execute build task, updating status to FAILED:", error);
                 await postgresService.query("UPDATE deployments SET status = 'FAILED' WHERE id = $1", [payload.deploymentId]);
                 eventBus.emit("deployment-status-changed");
-                // We DON'T delete the message here if we want SQS to retry,
-                // but for now, we'll delete it to avoid infinite failure loops
+                
                 await this.client.send(new DeleteMessageCommand({
                   QueueUrl: this.queueUrl,
                   ReceiptHandle: message.ReceiptHandle,
@@ -112,8 +108,7 @@ class SQSService {
           }
         }
       } catch (error) {
-        console.error("❌ Error polling SQS:", error);
-        // Wait a bit before retrying to avoid tight loop on persistent errors
+        logger.error("❌ Error polling SQS:", error);
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }

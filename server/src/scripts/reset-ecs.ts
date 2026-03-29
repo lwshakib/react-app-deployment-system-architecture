@@ -3,6 +3,7 @@ import { ECRClient, DeleteRepositoryCommand, DescribeRepositoriesCommand } from 
 import { IAMClient, DeleteRoleCommand, DetachRolePolicyCommand, ListAttachedRolePoliciesCommand } from "@aws-sdk/client-iam";
 import fs from "fs";
 import path from "path";
+import logger from "../logger/winston.logger";
 
 const region = process.env.AWS_REGION || "ap-south-1";
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID!;
@@ -14,13 +15,13 @@ const ecrClient = new ECRClient({ region, credentials });
 const iamClient = new IAMClient({ region, credentials });
 
 async function resetECS() {
-  console.log("🔥 Resetting ECS, ECR, and IAM infrastructure...");
+  logger.info("🔥 Resetting ECS, ECR, and IAM infrastructure...");
 
   try {
     // 1. Teardown ECS Cluster
     try {
       await ecsClient.send(new DeleteClusterCommand({ cluster: "react-app-deploy-cluster" }));
-      console.log("✅ ECS Cluster deleted.");
+      logger.info("✅ ECS Cluster deleted.");
     } catch (e) {}
 
     // 2. Deregister Task Definitions
@@ -31,13 +32,13 @@ async function resetECS() {
           await ecsClient.send(new DeregisterTaskDefinitionCommand({ taskDefinition: arn }));
         }
       }
-      console.log("✅ Task Definitions deregistered.");
+      logger.info("✅ Task Definitions deregistered.");
     } catch (e) {}
 
     // 3. Delete ECR Repository
     try {
       await ecrClient.send(new DeleteRepositoryCommand({ repositoryName: "build-container", force: true }));
-      console.log("✅ ECR Repository deleted.");
+      logger.info("✅ ECR Repository deleted.");
     } catch (e) {}
 
     // 4. Cleanup IAM Roles
@@ -51,7 +52,7 @@ async function resetECS() {
           }
         }
         await iamClient.send(new DeleteRoleCommand({ RoleName: roleName }));
-        console.log(`✅ IAM Role ${roleName} deleted.`);
+        logger.info(`✅ IAM Role ${roleName} deleted.`);
       } catch (e) {}
     }
 
@@ -60,23 +61,23 @@ async function resetECS() {
     if (fs.existsSync(envPath)) {
       let envContent = fs.readFileSync(envPath, "utf-8");
       
-      // Remove automated ECS block
       envContent = envContent.replace(/\n?# \[AUTOMATED - ECS\][\s\S]*?(?=\n# |$)/g, "").trim();
       
-      // Cleanup any orphaned variables
       const ecsKeys = ["ECS_CLUSTER_ARN", "ECS_TASK_DEFINITION_ARN", "ECS_SUBNETS", "ECS_SECURITY_GROUPS"];
       ecsKeys.forEach(key => {
           envContent = envContent.replace(new RegExp(`^${key}=.*\\n?`, 'gm'), '');
       });
 
       fs.writeFileSync(envPath, envContent.trim() + "\n");
-      console.log("✅ .env file cleaned up for ECS.");
+      logger.info("✅ .env file cleaned up for ECS.");
     }
 
-    console.log("🎉 ECS Reset Complete!");
+    logger.info("🎉 ECS Reset Complete!");
   } catch (error) {
-    console.error("❌ ECS Reset failed:", error);
+    logger.error("❌ ECS Reset failed:", error);
   }
 }
 
-resetECS();
+resetECS().then(() => {
+  process.exit(0);
+});

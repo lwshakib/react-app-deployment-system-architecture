@@ -1,19 +1,20 @@
-import { clickHouseService } from "../services/clickhouse.service";
+import { clickHouseService } from "../services/clickhouse.services";
+import logger from "../logger/winston.logger";
 
 async function resetClickHouse() {
-  console.log("🔥 Resetting ClickHouse database...");
-
-  const dropTableQuery = "DROP TABLE IF EXISTS log_events";
+  logger.info("🗑️ Resetting ClickHouse...");
 
   try {
-    await clickHouseService.exec(dropTableQuery);
-    console.log("✅ ClickHouse log_events table dropped successfully.");
+    await clickHouseService.exec("DROP TABLE IF EXISTS log_events");
+    logger.info("✅ ClickHouse log_events table deleted.");
   } catch (error) {
-    console.error("❌ ClickHouse reset failed:", error);
+    logger.error("❌ ClickHouse reset failed:", error);
     process.exit(1);
   } finally {
     await clickHouseService.close();
   }
 }
 
-resetClickHouse();
+resetClickHouse().then(() => {
+  process.exit(0);
+});

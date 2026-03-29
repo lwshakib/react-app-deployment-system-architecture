@@ -1,5 +1,5 @@
 import { generateSlug } from "random-word-slugs";
-import { postgresService } from "../services/postgres.service";
+import { postgresService } from "../services/postgres.services";
 
 /**
  * Helper: Extract repo name from Git URL

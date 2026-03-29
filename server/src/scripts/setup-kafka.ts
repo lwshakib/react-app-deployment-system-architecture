@@ -1,17 +1,18 @@
-import { kafkaService } from "../services/kafka.service";
+import { kafkaService } from "../services/kafka.services";
+import logger from "../logger/winston.logger";
 
 async function setupKafka() {
-  console.log("🚀 Starting Kafka setup...");
+  logger.info("🚀 Starting Kafka setup...");
 
   const TOPICS = ["container-logs", "deployment-status"];
 
   try {
     for (const topic of TOPICS) {
       await kafkaService.createTopic(topic);
-      console.log(`✅ Kafka topic '${topic}' is ready.`);
+      logger.info(`✅ Kafka topic '${topic}' is ready.`);
     }
   } catch (error) {
-    console.error("❌ Kafka setup failed:", error);
+    logger.error("❌ Kafka setup failed:", error);
     process.exit(1);
   } finally {
     await kafkaService.disconnect();

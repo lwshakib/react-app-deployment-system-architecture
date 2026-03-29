@@ -1,39 +1,35 @@
-import { postgresService } from "../services/postgres.service";
+import { postgresService } from "../services/postgres.services";
+import logger from "../logger/winston.logger";
 
-async function setupDatabase() {
-  console.log("🚀 Starting database setup...");
+async function setupPostgres() {
+  logger.info("🚀 Starting PostgreSQL setup...");
 
-  const createTablesQuery = `
-    DROP TABLE IF EXISTS deployments;
-    DROP TABLE IF EXISTS projects;
-
+  const createProjectsTable = `
     CREATE TABLE IF NOT EXISTS projects (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      name VARCHAR(255) NOT NULL,
+      name TEXT NOT NULL,
       git_url TEXT NOT NULL,
-      sub_domain VARCHAR(255) UNIQUE NOT NULL,
+      sub_domain TEXT NOT NULL UNIQUE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
+  `;
 
+  const createDeploymentsTable = `
     CREATE TABLE IF NOT EXISTS deployments (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
-      status VARCHAR(50) NOT NULL DEFAULT 'QUEUED',
+      status TEXT NOT NULL DEFAULT 'QUEUED',
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
 
   try {
-    await postgresService.query(createTablesQuery);
-    console.log("✅ Deployments table is ready.");
-    
-    // Check if table is empty, maybe add a dummy record?
-    const checkQuery = "SELECT COUNT(*) FROM deployments";
-    const res = await postgresService.query(checkQuery);
-    console.log(`📊 Current deployment count: ${res.rows[0].count}`);
-
+    await postgresService.query(createProjectsTable);
+    logger.info("✅ Projects table is ready.");
+    await postgresService.query(createDeploymentsTable);
+    logger.info("✅ Deployments table is ready.");
   } catch (error) {
-    console.error("❌ Database setup failed:", error);
+    logger.error("❌ PostgreSQL setup failed:", error);
     process.exit(1);
   } finally {
     await postgresService.close();
@@ -41,6 +37,6 @@ async function setupDatabase() {
   }
 }
 
-setupDatabase().then(() => {
+setupPostgres().then(() => {
   process.exit(0);
 });

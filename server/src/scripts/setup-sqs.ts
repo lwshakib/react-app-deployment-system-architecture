@@ -1,13 +1,14 @@
 import { SQSClient, CreateQueueCommand } from "@aws-sdk/client-sqs";
 import fs from "fs";
 import path from "path";
+import logger from "../logger/winston.logger";
 
 const region = process.env.AWS_REGION;
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
 if (!region || !accessKeyId || !secretAccessKey) {
-  console.error("❌ Missing AWS environment variables (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).");
+  logger.error("❌ Missing AWS environment variables (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).");
   process.exit(1);
 }
 
@@ -22,7 +23,7 @@ const sqsClient = new SQSClient({
 async function setupSQS() {
   const queueName = "react-app-deploy-queue";
 
-  console.log(`🚀 Starting SQS setup for queue: ${queueName}...`);
+  logger.info(`🚀 Starting SQS setup for queue: ${queueName}...`);
 
   try {
     const createParams = {
@@ -40,7 +41,7 @@ async function setupSQS() {
       throw new Error("QueueUrl is undefined");
     }
 
-    console.log(`✅ Queue created successfully. URL: ${queueUrl}`);
+    logger.info(`✅ Queue created successfully. URL: ${queueUrl}`);
 
     const envPath = path.join(process.cwd(), ".env");
     let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : "";
@@ -53,10 +54,10 @@ async function setupSQS() {
     envContent += `\n\n# [AUTOMATED - SQS]\nAWS_SQS_QUEUE_URL='${queueUrl}'\n`;
 
     fs.writeFileSync(envPath, envContent.trim() + "\n");
-    console.log("✅ .env file updated with AWS_SQS_QUEUE_URL (appended at bottom).");
+    logger.info("✅ .env file updated with AWS_SQS_QUEUE_URL (appended at bottom).");
 
   } catch (error) {
-    console.error("❌ SQS setup failed:", error);
+    logger.error("❌ SQS setup failed:", error);
     process.exit(1);
   }
 }
