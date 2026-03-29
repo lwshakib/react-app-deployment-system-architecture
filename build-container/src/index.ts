@@ -44,7 +44,7 @@ async function runCommand(command: string, cwd: string, stepName: string): Promi
     });
 
     p.stderr?.on("data", (data) => {
-      kafkaService.publishLog(`[${stepName}:ERR] ${data.toString().trim()}`);
+      kafkaService.publishLog(`[${stepName}] ${data.toString().trim()}`);
     });
 
     p.on("exit", (code) => {
