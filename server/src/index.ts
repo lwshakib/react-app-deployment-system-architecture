@@ -166,15 +166,12 @@ apiRouter.post("/deployments", async (req: Request, res: Response) => {
 
   const { repo, url } = safeParseResult.data;
   try {
-    const checkQuery = "SELECT * FROM projects WHERE git_url = $1";
-    const checkRes = await postgresService.query(checkQuery, [url]);
-    
-    let project = checkRes.rowCount === 0 
-      ? (await postgresService.query(
-          "INSERT INTO projects (name, git_url, sub_domain) VALUES ($1, $2, $3) RETURNING *",
-          [repo, url, await generateUniqueSubDomain(repo)]
-        )).rows[0]
-      : checkRes.rows[0];
+    // ALWAYS create a NEW project for EVERY deployment request to ensure a unique subdomain (URL)
+    const projectRes = await postgresService.query(
+      "INSERT INTO projects (name, git_url, sub_domain) VALUES ($1, $2, $3) RETURNING *",
+      [repo, url, await generateUniqueSubDomain(repo)]
+    );
+    const project = projectRes.rows[0];
 
     const deployRes = await postgresService.query(
       "INSERT INTO deployments (project_id, status) VALUES ($1, 'QUEUED') RETURNING *",
