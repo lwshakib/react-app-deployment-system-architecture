@@ -46,7 +46,6 @@ export default function ProjectDetails() {
   const [logs, setLogs] = useState<string[]>([]);
   const [files, setFiles] = useState<S3File[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deploying, setDeploying] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -143,18 +142,28 @@ export default function ProjectDetails() {
   }, [latestSuccessful]);
 
   const handleDeploy = async () => {
-    setDeploying(true);
     try {
       const res = await fetch(`${API_BASE_URL}/deployments/projects/${projectId}/deployments`, {
         method: "POST"
       });
       if (res.ok) {
-        setActiveTab("overview");
+        const response = await res.json();
+        const raw = response.data;
+        
+        // Instant Preview: Add the new deployment to the list immediately
+        const newDeployment: Deployment = {
+          id: raw.id,
+          projectId: raw.project_id,
+          repo: project.name,
+          url: project.git_url,
+          status: raw.status.toLowerCase() as any,
+          created_at: raw.created_at
+        };
+
+        setDeployments((prev) => [newDeployment, ...prev]);
       }
     } catch (err) {
       console.error("Deployment failed:", err);
-    } finally {
-      setDeploying(false);
     }
   };
 
@@ -317,19 +326,9 @@ export default function ProjectDetails() {
               <Button 
                 className="bg-zinc-100 text-zinc-950 hover:bg-zinc-200 gap-2 font-bold px-6 h-10 shadow-lg shadow-white/5 active:scale-95 transition-all text-[13px]"
                 onClick={handleDeploy}
-                disabled={deploying || (latestDeployment && (latestDeployment.status === "building" || latestDeployment.status === "queued"))}
               >
-                {deploying || (latestDeployment && (latestDeployment.status === "building" || latestDeployment.status === "queued")) ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Creating...
-                    </>
-                ) : (
-                    <>
-                      <Rocket className="size-4" />
-                      Create Deployment
-                    </>
-                )}
+                <Rocket className="size-4" />
+                Create Deployment
               </Button>
             </div>
 

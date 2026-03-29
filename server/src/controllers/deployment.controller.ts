@@ -112,7 +112,7 @@ export const createDeployment = asyncHandler(async (req: Request, res: Response)
 
   eventBus.emit("deployment-status-changed");
   
-  return res.status(201).json(new ApiResponse(201, { deploymentId: deployment.id }, "Deployment started successfully"));
+  return res.status(201).json(new ApiResponse(201, deployment, "Deployment started successfully"));
 });
 
 export const deleteDeployment = asyncHandler(async (req: Request, res: Response) => {
