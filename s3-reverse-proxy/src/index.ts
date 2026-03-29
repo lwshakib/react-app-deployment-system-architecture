@@ -42,7 +42,7 @@ app.use(async (req, res, next) => {
 
     if (!subdomain) return next(new ApiError(400, "Invalid host."));
 
-    let projectSubdomain = '';
+    let projectId = '';
     let deploymentId = '';
 
     if (UUID_REGEX.test(subdomain)) {
@@ -50,34 +50,34 @@ app.use(async (req, res, next) => {
         deploymentId = subdomain;
         try {
             const result = await postgresService.query(
-                'SELECT p.sub_domain FROM projects p JOIN deployments d ON p.id = d.project_id WHERE d.id = $1',
+                'SELECT p.id FROM projects p JOIN deployments d ON p.id = d.project_id WHERE d.id = $1',
                 [deploymentId]
             );
             if (result.rowCount === 0) return next(new ApiError(404, "Deployment not found."));
             const row = result.rows[0];
-            if (row && typeof row.sub_domain === 'string') {
-                projectSubdomain = row.sub_domain;
+            if (row && typeof row.id === 'string') {
+                projectId = row.id;
             } else {
-                return next(new ApiError(500, "Internal error: Subdomain not found."));
+                return next(new ApiError(500, "Internal error: Project ID not found."));
             }
         } catch (err) {
             return next(err);
         }
     } else {
         // 2. Main Project Request: <project-name>.localhost
-        projectSubdomain = subdomain;
         try {
             const result = await postgresService.query(
-                `SELECT d.id FROM deployments d 
+                `SELECT d.id, p.id as project_id FROM deployments d 
                  JOIN projects p ON d.project_id = p.id 
                  WHERE p.sub_domain = $1 AND d.status = 'READY' 
                  ORDER BY d.created_at DESC LIMIT 1`,
-                [projectSubdomain]
+                [subdomain]
             );
             if (result.rowCount === 0) return next(new ApiError(404, "No successful deployment found for this project."));
             const row = result.rows[0];
             if (row && typeof row.id === 'string') {
                 deploymentId = row.id;
+                projectId = row.project_id;
             } else {
                 return next(new ApiError(500, "Internal error: Deployment ID not found."));
             }
@@ -86,7 +86,7 @@ app.use(async (req, res, next) => {
         }
     }
 
-    const newPath = `/__outputs/${projectSubdomain}/${deploymentId}${urlPath}`;
+    const newPath = `/__outputs/${projectId}/${deploymentId}${urlPath}`;
     logger.info(`📡 Routing: ${host}${req.url} -> Folder: ${newPath}`);
     
     req.url = newPath;

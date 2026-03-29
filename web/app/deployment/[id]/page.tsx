@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, ExternalLink, Terminal, ShieldCheck, AlertCircle, Loader2, Globe, History, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 
 import { 
@@ -16,6 +17,7 @@ interface Deployment {
   id: string;
   projectId: string;
   repo: string;
+  subDomain?: string;
   url: string;
   status: "queued" | "building" | "ready" | "failed";
   created_at: string;
@@ -37,7 +39,7 @@ export default function DeploymentDetails() {
   const [logs, setLogs] = useState<string[]>([]);
   const [files, setFiles] = useState<S3File[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedItems, setExpandedItems] = useState<string[]>(["logs", "summary", "domain"]);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -82,27 +84,8 @@ export default function DeploymentDetails() {
       } catch (err) {}
     };
 
-    // SSE: Stream status changes
-    const statusEventSource = new EventSource(`${API_BASE_URL}/deployments/stream`);
-    statusEventSource.onmessage = (event) => {
-      try {
-        const all = JSON.parse(event.data);
-        const current = all.find((d: any) => d.id === deploymentId);
-        if (current) {
-          setDeployment(current);
-          if (current.status === "ready") {
-             // Re-fetch files if it just finished
-             fetch(`${API_BASE_URL}/deployments/${deploymentId}/files`)
-              .then(r => r.json())
-              .then(d => setFiles(d.data.files));
-          }
-        }
-      } catch (err) {}
-    };
-
     return () => {
       logEventSource.close();
-      statusEventSource.close();
     };
   }, [deploymentId]);
 
@@ -153,7 +136,7 @@ export default function DeploymentDetails() {
                   Project: {deployment.repo}
                 </button>
                 <div className="size-1 rounded-full bg-zinc-800" />
-                <p className="text-[10px] text-zinc-500">{new Date(deployment.created_at).toLocaleString()}</p>
+                <p className="text-[10px] text-zinc-500">{formatDistanceToNow(new Date(deployment.created_at), { addSuffix: true })}</p>
               </div>
             </div>
           </div>
@@ -168,26 +151,16 @@ export default function DeploymentDetails() {
           </div>
         </div>
 
-        {/* Specific Build URL Card */}
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 flex items-center justify-between shadow-sm">
-           <div className="space-y-1">
-              <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Build Preview URL</span>
-              <p className="text-sm font-semibold text-zinc-100">{deployment.id}.localhost:8080</p>
-           </div>
-           <Button 
-             variant="outline" 
-             className="border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800/80 text-[11px] gap-2 h-9"
-             disabled={deployment.status !== "ready"}
-             onClick={() => window.open(specificUrl, "_blank")}
-           >
-             Visit Site <ExternalLink className="size-3" />
-           </Button>
-        </div>
 
-        {/* Accordion Sections */}
+        {/* Accordion Sections: Logs -> Artifacts -> Domain */}
         <Accordion type="multiple" value={expandedItems} onValueChange={setExpandedItems} className="space-y-4">
           
-          <AccordionItem value="logs" className="border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20">
+          {/* Build Logs: Enabled if Building, Ready, or Failed */}
+          <AccordionItem 
+            value="logs" 
+            disabled={deployment.status === "queued"}
+            className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${deployment.status === "queued" && 'opacity-30'}`}
+          >
             <AccordionTrigger className="px-6 py-4 hover:no-underline group">
                <div className="flex items-center gap-3">
                   <Terminal className="size-4 text-zinc-500" />
@@ -197,16 +170,21 @@ export default function DeploymentDetails() {
             <AccordionContent className="px-6 pb-6">
               <div className="bg-black/40 rounded-lg border border-zinc-800 p-4 h-[400px] overflow-y-auto font-mono text-[11px] leading-relaxed">
                 {logs.length === 0 ? (
-                    <div className="text-zinc-700 italic">No logs available for this build phase.</div>
+                    <div className="text-zinc-700 italic text-center py-6">No logs available for this build phase.</div>
                 ) : (
-                    logs.map((log, i) => <div key={i} className="mb-0.5 text-zinc-400"><span className="text-zinc-700 mr-2 select-none">{(i+1).toString().padStart(3, '0')}</span>{log}</div>)
+                    logs.map((log, i) => <div key={i} className="mb-0.5 text-zinc-400 font-mono"><span className="text-zinc-700 mr-2 select-none">{(i+1).toString().padStart(3, '0')}</span>{log}</div>)
                 )}
                 <div ref={logEndRef} />
               </div>
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="summary" disabled={files.length === 0} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${files.length === 0 && 'opacity-40'}`}>
+          {/* Build Artifacts: Only Enabled if READY */}
+          <AccordionItem 
+            value="summary" 
+            disabled={deployment.status !== "ready" || files.length === 0} 
+            className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${(deployment.status !== "ready" || files.length === 0) && 'opacity-30 transition-opacity'}`}
+          >
             <AccordionTrigger className="px-6 py-4 hover:no-underline group">
                <div className="flex items-center gap-3">
                   <ShieldCheck className="size-4 text-zinc-500" />
@@ -223,6 +201,29 @@ export default function DeploymentDetails() {
                         </div>
                      ))}
                   </div>
+               </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Custom Domain: Only Enabled if READY */}
+          <AccordionItem 
+            value="domain" 
+            disabled={deployment.status !== "ready"}
+            className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${deployment.status !== "ready" && 'opacity-30'}`}
+          >
+            <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+               <div className="flex items-center gap-3">
+                  <Globe className="size-4 text-zinc-500" />
+                  <span className="text-sm font-semibold text-zinc-300">Custom Assigned Domain</span>
+               </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-6 pb-6">
+               <div className="p-4 bg-zinc-950/40 border border-zinc-800/50 rounded-lg flex items-center justify-between group/link hover:border-zinc-700 transition-colors cursor-pointer" onClick={() => window.open(`http://${deployment.id}.localhost:8080`, "_blank")}>
+                  <div className="flex items-center gap-3">
+                     <Globe className="size-4 text-zinc-500" />
+                     <span className="text-sm font-medium text-zinc-300 group-hover/link:text-zinc-100 transition-colors">{deployment.id}.localhost:8080</span>
+                  </div>
+                  <ExternalLink className="size-3.5 text-zinc-700 group-hover/link:text-zinc-500 transition-colors" />
                </div>
             </AccordionContent>
           </AccordionItem>

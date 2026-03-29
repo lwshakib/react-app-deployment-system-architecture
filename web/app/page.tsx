@@ -36,25 +36,20 @@ export default function Home() {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // SSE: Stream deployments for real-time dashboard updates
-    const eventSource = new EventSource(`${API_BASE_URL}/deployments/stream`);
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setDeployments(data);
-      } catch (err) {
-        console.error("Error parsing SSE data:", err);
+  const fetchDeployments = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/deployments`);
+      if (response.ok) {
+        const data = await response.json();
+        setDeployments(data.data);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching deployments:", error);
+    }
+  };
 
-    eventSource.onerror = (err) => {
-      console.error("SSE Connection Error:", err);
-      eventSource.close();
-    };
-
-    return () => eventSource.close();
+  useEffect(() => {
+    fetchDeployments();
   }, []);
 
   const handleDeploy = async () => {
@@ -72,6 +67,7 @@ export default function Home() {
 
       if (response.ok) {
         setGithubUrl("");
+        fetchDeployments();
       }
     } catch (error) {
       console.error("Error creating deployment:", error);
@@ -83,19 +79,12 @@ export default function Home() {
   const handleDelete = async (id: string) => {
     try {
       await fetch(`${API_BASE_URL}/deployments/${id}`, { method: "DELETE" });
+      fetchDeployments();
     } catch (error) {
       console.error("Error deleting deployment:", error);
     }
   };
 
-  const getStatusIcon = (status: Deployment["status"]) => {
-    switch (status) {
-      case "queued": return <Clock className="size-3 text-zinc-500" />;
-      case "building": return <Loader2 className="size-3 text-blue-500/50" />;
-      case "ready": return <CheckCircle2 className="size-3 text-green-500" />;
-      case "failed": return <div className="size-1.5 rounded-full bg-red-500" />;
-    }
-  };
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-zinc-950 text-zinc-50 font-sans p-6 sm:p-20">
@@ -152,9 +141,6 @@ export default function Home() {
                 </div>
                 
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center">
-                    {getStatusIcon(deployment.status)}
-                  </div>
                   <div className="flex items-center">
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

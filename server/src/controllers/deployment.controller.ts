@@ -32,7 +32,7 @@ export const getDeployments = asyncHandler(async (req: Request, res: Response) =
     id: row.id,
     projectId: row.project_id,
     repo: row.repo,
-    url: proxyUrl.replace("://", `://${row.sub_domain}.`),
+    url: proxyUrl.replace("://", `://${row.id}.`),
     status: row.status.toLowerCase(),
     created_at: row.created_at,
   }));
@@ -58,7 +58,8 @@ export const getDeploymentById = asyncHandler(async (req: Request, res: Response
   const data = {
     id: row.id,
     repo: row.repo,
-    url: proxyUrl.replace("://", `://${row.sub_domain}.`),
+    subDomain: row.sub_domain,
+    url: proxyUrl.replace("://", `://${row.id}.`),
     status: row.status.toLowerCase(),
     created_at: row.created_at,
   };
@@ -74,7 +75,7 @@ export const createDeployment = asyncHandler(async (req: Request, res: Response)
     projectId: z.string().uuid().optional() // From Body
   });
 
-  const safeParseResult = schema.safeParse(req.body);
+  const safeParseResult = schema.safeParse(req.body || {});
   if (safeParseResult.error) {
     throw new ApiError(400, "Invalid request data", safeParseResult.error.issues);
   }
@@ -126,10 +127,10 @@ export const deleteDeployment = asyncHandler(async (req: Request, res: Response)
     throw new ApiError(404, "Deployment not found");
   }
   
-  const { project_id, sub_domain } = metaRes.rows[0];
-
+  const { project_id } = metaRes.rows[0];
+  
   // Targeted cleanup: Only delete files for THIS specific deployment
-  const prefix = `__outputs/${sub_domain}/${id}/`;
+  const prefix = `__outputs/${project_id}/${id}/`;
   const s3Res = await s3Service.listObjects(prefix);
   
   if (s3Res.Contents && s3Res.Contents.length > 0) {
@@ -158,7 +159,7 @@ export const getDeploymentFiles = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   
   const projectRes = await postgresService.query(
-    "SELECT p.sub_domain FROM projects p JOIN deployments d ON p.id = d.project_id WHERE d.id = $1",
+    "SELECT p.id as project_id FROM projects p JOIN deployments d ON p.id = d.project_id WHERE d.id = $1",
     [id]
   );
 
@@ -166,8 +167,8 @@ export const getDeploymentFiles = asyncHandler(async (req: Request, res: Respons
     throw new ApiError(404, "Deployment not found");
   }
   
-  const subDomain = projectRes.rows[0].sub_domain;
-  const prefix = `__outputs/${subDomain}/${id}/`;
+  const { project_id } = projectRes.rows[0];
+  const prefix = `__outputs/${project_id}/${id}/`;
   const s3Res = await s3Service.listObjects(prefix);
   
   const files = s3Res.Contents?.map((item) => ({
@@ -199,7 +200,7 @@ export const dashboardStream = (req: Request, res: Response) => {
         id: row.id,
         projectId: row.project_id,
         repo: row.repo,
-        url: proxyUrl.replace("://", `://${row.sub_domain}.`),
+        url: proxyUrl.replace("://", `://${row.id}.`),
         status: row.status.toLowerCase(),
         created_at: row.created_at,
       }));

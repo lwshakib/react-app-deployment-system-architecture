@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, ExternalLink, Terminal, AlertCircle, Loader2, Globe, Rocket, History, Clock, CheckCircle2, XCircle, ShieldCheck, GitBranch, GitCommit, Plus, User } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 
 import { 
@@ -49,6 +50,8 @@ export default function ProjectDetails() {
   const [activeTab, setActiveTab] = useState("overview");
   
   const logEndRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(1);
 
   const fetchProjectData = async () => {
     try {
@@ -93,20 +96,12 @@ export default function ProjectDetails() {
   useEffect(() => {
     fetchProjectData();
 
-    // SSE: Stream status changes
-    const statusEventSource = new EventSource(`${API_BASE_URL}/deployments/stream`);
-    statusEventSource.onmessage = (event) => {
-      try {
-        const all = JSON.parse(event.data);
-        const projectDeployments = all.filter((d: any) => d.projectId === projectId);
-        if (projectDeployments.length > 0) {
-          setDeployments(projectDeployments);
-        }
-      } catch (err) {}
-    };
-
-    return () => statusEventSource.close();
+    return () => {};
   }, [projectId]);
+
+  const latestDeployment = deployments[0];
+  const latestSuccessful = deployments.find(d => d.status === "ready");
+  const productionUrl = latestSuccessful ? `http://${project?.sub_domain}.localhost:8080` : null;
 
   useEffect(() => {
     const latest = deployments[0];
@@ -130,6 +125,23 @@ export default function ProjectDetails() {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
+  // ResizeObserver for Preview Scaling
+  useEffect(() => {
+    if (!previewContainerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === previewContainerRef.current) {
+          const width = entry.contentRect.width;
+          setPreviewScale(width / 1280);
+        }
+      }
+    });
+
+    observer.observe(previewContainerRef.current);
+    return () => observer.disconnect();
+  }, [latestSuccessful]);
+
   const handleDeploy = async () => {
     setDeploying(true);
     try {
@@ -151,10 +163,6 @@ export default function ProjectDetails() {
       <Loader2 className="size-8 text-zinc-500 animate-spin" />
     </div>
   );
-
-  const latestDeployment = deployments[0];
-  const latestSuccessful = deployments.find(d => d.status === "ready");
-  const productionUrl = latestSuccessful ? `http://${project?.sub_domain}.localhost:8080` : null;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 p-6 sm:p-20 font-sans">
@@ -193,98 +201,115 @@ export default function ProjectDetails() {
 
           <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Vercel-Style Preview & Dashboard */}
-            <div className="grid grid-cols-1 lg:col-span-12 lg:grid-cols-12 gap-10 pt-4">
-              {/* Left: 16:9 Preview Pane */}
-              <div className="lg:col-span-8">
-                <div className="aspect-video bg-zinc-900/20 border border-zinc-900 rounded-xl overflow-hidden shadow-sm flex flex-col group transition-all hover:border-zinc-800">
-                  <div className="flex-1 bg-black/40 flex flex-col items-center justify-center relative">
-                    {productionUrl ? (
+            {latestSuccessful ? (
+              <div className="grid grid-cols-1 lg:col-span-12 lg:grid-cols-12 gap-10 pt-4">
+                {/* Left: 16:9 Preview Pane */}
+                <div className="lg:col-span-8">
+                  <div 
+                    ref={previewContainerRef}
+                    className="relative aspect-video bg-zinc-900/20 border border-zinc-900 rounded-xl overflow-hidden shadow-sm flex flex-col group transition-all hover:border-zinc-800"
+                  >
+                    <div className="flex-1 bg-black/40 flex flex-col items-center justify-center relative overflow-hidden">
                       <iframe 
-                        src={productionUrl} 
-                        className="w-full h-full border-none pointer-events-none opacity-90 block overflow-hidden" 
+                        src={productionUrl!} 
+                        style={{
+                          width: "1280px",
+                          height: "720px",
+                          transform: `scale(${previewScale})`,
+                          transformOrigin: "0 0",
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          border: "none",
+                          pointerEvents: "none",
+                          opacity: 0.9,
+                        }}
                         title="Site Preview"
                         scrolling="no"
                       />
-                    ) : (
-                      <div className="flex flex-col items-center gap-4 text-center opacity-30">
-                        <Rocket className="size-8 text-zinc-500" />
-                        <p className="text-xs font-medium text-zinc-500">Preview not available</p>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Right: Minimalist Metadata Dashboard */}
-              <div className="lg:col-span-4 space-y-8 h-full flex flex-col py-1">
-                {/* Deployment section */}
-                <div className="space-y-1.5">
-                  <span className="text-[12px] text-zinc-500 font-medium">Deployment</span>
-                  <p className="text-[13px] font-semibold text-zinc-200 truncate tracking-tight hover:text-zinc-100 cursor-pointer transition-colors">
-                    {productionUrl ? `${project?.sub_domain}.localhost:8080` : "None"}
-                  </p>
-                </div>
-
-                {/* Domains section */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] text-zinc-500 font-medium">Domains</span>
-                  </div>
-                  <div className="flex items-center gap-2 group cursor-pointer inline-flex">
-                    <p className="text-[13px] font-semibold text-zinc-200">
-                      {project?.sub_domain}.localhost:8080
+                {/* Right: Minimalist Metadata Dashboard */}
+                <div className="lg:col-span-4 space-y-8 h-full flex flex-col py-1">
+                  {/* Deployment section: Latest Successful Build URL */}
+                  <div className="space-y-1.5">
+                    <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Deployment</span>
+                    <p 
+                      className="text-[13px] font-semibold text-zinc-200 truncate tracking-tight hover:text-zinc-50 cursor-pointer transition-colors"
+                      onClick={() => latestSuccessful && window.open(`http://${latestSuccessful.id}.localhost:8080`, "_blank")}
+                    >
+                      {latestSuccessful ? `${latestSuccessful.id}.localhost:8080` : "None"}
                     </p>
-                    <ExternalLink className="size-3 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                </div>
 
-                {/* Status & Created grid */}
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Status</span>
+                  {/* Domains section: Main Subdomain */}
+                  <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
-                      <div className={`size-2 rounded-full ${
-                        latestDeployment?.status === "ready" ? "bg-emerald-500" :
-                        latestDeployment?.status === "failed" ? "bg-red-500" :
-                        "bg-blue-500 animate-pulse"
-                      }`} />
-                      <span className="text-[13px] font-semibold text-zinc-200 capitalize">
-                        {latestDeployment?.status || "Idle"}
-                      </span>
+                      <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Domains</span>
+                    </div>
+                    <div 
+                      className="flex items-center gap-2 group cursor-pointer inline-flex transition-colors"
+                      onClick={() => productionUrl && window.open(productionUrl, "_blank")}
+                    >
+                      <p className="text-[13px] font-semibold text-zinc-200 group-hover:text-zinc-50">
+                        {project?.sub_domain}.localhost:8080
+                      </p>
+                      <ExternalLink className="size-3 text-zinc-600 transition-opacity" />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Created</span>
-                    <div className="flex items-center gap-2">
-                      <div className="size-5 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                        <User className="size-3 text-zinc-600" />
+                  {/* Status & Created grid */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Status</span>
+                      <div className="flex items-center gap-2">
+                        <div className={`size-2 rounded-full ${
+                          latestDeployment?.status === "ready" ? "bg-emerald-500" :
+                          latestDeployment?.status === "failed" ? "bg-red-500" :
+                          "bg-blue-500 animate-pulse"
+                        }`} />
+                        <span className="text-[13px] font-semibold text-zinc-200 capitalize">
+                          {latestDeployment?.status || "Idle"}
+                        </span>
                       </div>
-                      <span className="text-[13px] font-semibold text-zinc-300">
-                        {latestDeployment ? new Date(latestDeployment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "--"}
-                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Created</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[13px] font-semibold text-zinc-300">
+                          {latestDeployment ? formatDistanceToNow(new Date(latestDeployment.created_at), { addSuffix: true }) : "--"}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Source section */}
-                <div className="space-y-2.5">
-                  <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Source</span>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 opacity-80 hover:opacity-100 cursor-pointer transition-opacity">
-                      <GitBranch className="size-3.5 text-zinc-500" />
-                      <span className="text-[13px] font-semibold text-zinc-200">main</span>
-                    </div>
-                    <div className="flex items-center gap-2 opacity-60 hover:opacity-100 cursor-pointer transition-opacity">
-                      <GitCommit className="size-3.5 text-zinc-500" />
-                      <span className="text-[13px] font-medium text-zinc-400">
-                        {latestDeployment?.id.slice(0, 7) || "---"}
-                      </span>
+                  {/* Source section */}
+                  <div className="space-y-2.5">
+                    <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Source</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 opacity-80 hover:opacity-100 cursor-pointer transition-opacity">
+                        <GitBranch className="size-3.5 text-zinc-500" />
+                        <span className="text-[13px] font-semibold text-zinc-200">main</span>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-60 hover:opacity-100 cursor-pointer transition-opacity">
+                        <GitCommit className="size-3.5 text-zinc-500" />
+                        <span className="text-[13px] font-medium text-zinc-400">
+                          {latestDeployment?.id.slice(0, 7) || "---"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-32 bg-zinc-900/10 border border-zinc-900 rounded-2xl border-dashed opacity-50 space-y-4">
+                <Rocket className="size-10 text-zinc-700" />
+                <p className="text-sm font-medium text-zinc-500">No active deployment found</p>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="deployments" className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
