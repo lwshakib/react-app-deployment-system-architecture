@@ -145,9 +145,9 @@ export default function ProjectDetails() {
         <Accordion type="multiple" defaultValue={["logs"]} className="space-y-4">
           
           <AccordionItem value="logs" className="border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20">
-            <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-zinc-900/40 transition-colors group">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline group">
                <div className="flex items-center gap-3">
-                  <Terminal className="size-4 text-zinc-500 group-hover:text-zinc-300" />
+                  <Terminal className="size-4 text-zinc-500" />
                   <span className="text-sm font-semibold text-zinc-300">Build Logs</span>
                </div>
             </AccordionTrigger>
@@ -164,9 +164,9 @@ export default function ProjectDetails() {
           </AccordionItem>
 
           <AccordionItem value="summary" disabled={!isReady} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${!isReady && 'opacity-40'}`}>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-zinc-900/40 transition-colors group">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline group">
                <div className="flex items-center gap-3">
-                  <ShieldCheck className="size-4 text-zinc-500 group-hover:text-zinc-300" />
+                  <ShieldCheck className="size-4 text-zinc-500" />
                   <span className="text-sm font-semibold text-zinc-300">Deployment Summary</span>
                </div>
             </AccordionTrigger>
@@ -186,9 +186,9 @@ export default function ProjectDetails() {
           </AccordionItem>
 
           <AccordionItem value="domain" disabled={!isReady} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${!isReady && 'opacity-40'}`}>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-zinc-900/40 transition-colors group">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline group">
                <div className="flex items-center gap-3">
-                  <Globe className="size-4 text-zinc-500 group-hover:text-zinc-300" />
+                  <Globe className="size-4 text-zinc-500" />
                   <span className="text-sm font-semibold text-zinc-300">Custom Domains</span>
                </div>
             </AccordionTrigger>
