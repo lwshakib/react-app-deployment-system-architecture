@@ -105,6 +105,7 @@ export default function ProjectDetails() {
   }, [logs]);
 
   const isReady = status === "ready";
+  const isQueued = status === "queued";
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 p-6 sm:p-20 font-sans">
@@ -144,7 +145,7 @@ export default function ProjectDetails() {
         {/* Accordion Sections */}
         <Accordion type="multiple" defaultValue={["logs"]} className="space-y-4">
           
-          <AccordionItem value="logs" className="border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20">
+          <AccordionItem value="logs" disabled={isQueued} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${isQueued && 'opacity-40'}`}>
             <AccordionTrigger className="px-6 py-4 hover:no-underline group">
                <div className="flex items-center gap-3">
                   <Terminal className="size-4 text-zinc-500" />
