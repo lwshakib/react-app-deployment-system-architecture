@@ -119,106 +119,122 @@ async function init() {
     console.error("❌ Kafka Connection Error (logs will not be streamed):", err);
   }
 
+  const outDirPath = path.join(__dirname, "output");
+
+  // Helper: Run shell command with real-time log streaming
+  async function runCommand(command: string, cwd: string, stepName: string): Promise<boolean> {
+    await publishLog(`👉 Running: ${stepName} (${command})...`);
+    
+    return new Promise((resolve) => {
+      const p = exec(command, { cwd });
+
+      p.stdout?.on("data", (data) => {
+        publishLog(`[${stepName}] ${data.toString().trim()}`);
+      });
+
+      p.stderr?.on("data", (data) => {
+        publishLog(`[${stepName}:ERR] ${data.toString().trim()}`);
+      });
+
+      p.on("exit", (code) => {
+        if (code === 0) {
+          publishLog(`✅ ${stepName} completed successfully.`);
+          resolve(true);
+        } else {
+          publishLog(`❌ ${stepName} failed with code ${code}`);
+          resolve(false);
+        }
+      });
+
+      p.on("error", (err) => {
+        publishLog(`❌ ${stepName} encountered an error: ${err.message}`);
+        resolve(false);
+      });
+    });
+  }
+
   const GIT_URL = process.env.GIT_REPOSITORY__URL;
   if (!GIT_URL) {
     await publishLog("❌ ERROR: GIT_REPOSITORY__URL is missing!");
     await publishStatus("FAILED");
     await shutdown(1);
+    return;
   }
 
-  const outDirPath = path.join(__dirname, "output");
-  
-  // 1. Clone the repository
-  await publishLog(`📂 Cloning repository: ${GIT_URL}...`);
-  
-  const cloneCmd = `git clone ${GIT_URL} ${outDirPath}`;
-  
-  await new Promise((resolve, reject) => {
-    const p = exec(cloneCmd);
-    p.stdout?.on("data", (data) => publishLog(data.toString()));
-    p.stderr?.on("data", (data) => publishLog(data.toString()));
-    p.on("exit", async (code) => {
-      if (code === 0) {
-        publishLog("✅ Repository cloned successfully.");
-        resolve(true);
-      } else {
-        publishLog(`❌ Failed to clone repository with code ${code}`);
-        reject(new Error(`Clone failed with code ${code}`));
-        await shutdown(1);
-      }
-    });
-  });
+  // Ensure output directory exists for git clone .
+  if (!fs.existsSync(outDirPath)) {
+    fs.mkdirSync(outDirPath);
+  }
 
-  // 2. Build: Install and Bundle
-  await publishLog("📦 Starting build (npm install && npm run build)...");
-  
-  const buildCommand = `cd ${outDirPath} && npm install && npm run build`;
-  
-  const p = exec(buildCommand);
+  const cloneSuccess = await runCommand(`git clone ${GIT_URL} .`, outDirPath, "Cloning Repository");
+  if (!cloneSuccess) {
+    await publishStatus("FAILED");
+    await shutdown(1);
+    return;
+  }
 
-  p.stdout?.on("data", (data) => {
-    publishLog(data.toString());
-  });
+  // 2. Install Dependencies
+  const installSuccess = await runCommand("npm install", outDirPath, "npm install");
+  if (!installSuccess) {
+    await publishStatus("FAILED");
+    await shutdown(1);
+    return;
+  }
 
-  p.stderr?.on("data", (data) => {
-    publishLog(data.toString());
-  });
+  // 3. Run Build
+  const buildSuccess = await runCommand("npm run build", outDirPath, "npm run build");
+  if (!buildSuccess) {
+    await publishStatus("FAILED");
+    await shutdown(1);
+    return;
+  }
 
-  p.on("exit", async (code) => {
-    if (code !== 0) {
-      await publishLog(`❌ Build failed with exit code ${code}`);
-      await publishStatus("FAILED");
-      await shutdown(1);
+  await publishLog("✅ Build and Install Complete");
+
+  // Detect output folder dynamically after build
+  let distFolderPath = path.join(outDirPath, "dist");
+  if (!fs.existsSync(distFolderPath)) {
+    distFolderPath = path.join(outDirPath, "build");
+  }
+  if (!fs.existsSync(distFolderPath)) {
+    distFolderPath = path.join(outDirPath, "out");
+  }
+
+  if (!fs.existsSync(distFolderPath)) {
+    await publishLog(`❌ ERROR: No build output folder found (checked dist, build, out)`);
+    await publishStatus("FAILED");
+    await shutdown(1);
+    return;
+  }
+
+  try {
+    const distFolderContents = await getAllFiles(distFolderPath);
+    await publishLog(`📤 Starting upload to S3 (${distFolderContents.length} files)`);
+
+    for (const filePath of distFolderContents) {
+      const fileKey = path.relative(distFolderPath, filePath).replace(/\\/g, "/"); // Ensure POSIX paths
+      const fileBuffer = fs.readFileSync(filePath);
+
+      const command = new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: `__outputs/${PROJECT_NAME}/${fileKey}`, 
+        Body: fileBuffer,
+        ContentLength: fileBuffer.length,
+        ContentType: mime.lookup(filePath) || "application/octet-stream",
+      });
+
+      await s3Client.send(command);
+      await publishLog(`✅ Uploaded: ${fileKey}`);
     }
 
-    await publishLog("✅ Build Complete");
-
-    // Detect output folder dynamically after build
-    let distFolderPath = path.join(outDirPath, "dist");
-    if (!fs.existsSync(distFolderPath)) {
-      distFolderPath = path.join(outDirPath, "build");
-    }
-    if (!fs.existsSync(distFolderPath)) {
-      distFolderPath = path.join(outDirPath, "out");
-    }
-
-    if (!fs.existsSync(distFolderPath)) {
-      await publishLog(`❌ ERROR: No build output folder found (checked dist, build, out)`);
-      await publishStatus("FAILED");
-      await shutdown(1);
-    }
-
-    await publishLog("✅ Build Complete");
-
-    try {
-      const distFolderContents = await getAllFiles(distFolderPath);
-      await publishLog(`📤 Starting upload to S3 (${distFolderContents.length} files)`);
-
-      for (const filePath of distFolderContents) {
-        const fileKey = path.relative(distFolderPath, filePath).replace(/\\/g, "/"); // Ensure POSIX paths
-        const fileBuffer = fs.readFileSync(filePath);
-
-        const command = new PutObjectCommand({
-          Bucket: S3_BUCKET,
-          Key: `__outputs/${PROJECT_NAME}/${fileKey}`, 
-          Body: fileBuffer,
-          ContentLength: fileBuffer.length,
-          ContentType: mime.lookup(filePath) || "application/octet-stream",
-        });
-
-        await s3Client.send(command);
-        await publishLog(`✅ Uploaded: ${fileKey}`);
-      }
-
-      await publishLog("✨ Deployment Successful! Done.");
-      await publishStatus("READY");
-      await shutdown(0);
-    } catch (err: any) {
-      await publishLog(`❌ ERROR during upload: ${err.message}`);
-      await publishStatus("FAILED");
-      await shutdown(1);
-    }
-  });
+    await publishLog("✨ Deployment Successful! Done.");
+    await publishStatus("READY");
+    await shutdown(0);
+  } catch (err: any) {
+    await publishLog(`❌ ERROR during upload: ${err.message}`);
+    await publishStatus("FAILED");
+    await shutdown(1);
+  }
 }
 
 init().catch(async (err) => {

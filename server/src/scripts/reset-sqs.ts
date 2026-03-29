@@ -1,4 +1,6 @@
 import { SQSClient, DeleteQueueCommand, GetQueueUrlCommand } from "@aws-sdk/client-sqs";
+import fs from "fs";
+import path from "path";
 
 const region = process.env.AWS_REGION;
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
@@ -13,7 +15,7 @@ const sqsClient = new SQSClient({
 });
 
 async function resetSQS() {
-  const queueName = "FastDeployQueue";
+  const queueName = "react-app-deploy-queue";
   console.log(`🔥 Resetting SQS queue: ${queueName}...`);
 
   try {
@@ -24,6 +26,21 @@ async function resetSQS() {
       await sqsClient.send(new DeleteQueueCommand({ QueueUrl: queueUrl }));
       console.log(`✅ Queue ${queueName} deleted successfully.`);
     }
+
+    // .env Cleanup
+    const envPath = path.join(process.cwd(), ".env");
+    if (fs.existsSync(envPath)) {
+      let envContent = fs.readFileSync(envPath, "utf-8");
+      
+      // Remove automated SQS block
+      envContent = envContent.replace(/\n?# \[AUTOMATED - SQS\][\s\S]*?(?=\n# |$)/g, "").trim();
+      // Safeguard: remove any orphaned AWS_SQS_QUEUE_URL
+      envContent = envContent.replace(/AWS_SQS_QUEUE_URL=.*/g, "").trim();
+
+      fs.writeFileSync(envPath, envContent + "\n");
+      console.log("✅ .env file cleaned up for SQS.");
+    }
+
   } catch (error: any) {
     if (error.name === "QueueDoesNotExist") {
       console.log("ℹ️ Queue does not exist, skipping.");

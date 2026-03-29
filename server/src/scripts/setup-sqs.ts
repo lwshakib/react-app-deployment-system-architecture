@@ -20,7 +20,7 @@ const sqsClient = new SQSClient({
 });
 
 async function setupSQS() {
-  const queueName = "FastDeployQueue";
+  const queueName = "react-app-deploy-queue";
 
   console.log(`🚀 Starting SQS setup for queue: ${queueName}...`);
 
@@ -43,20 +43,17 @@ async function setupSQS() {
     console.log(`✅ Queue created successfully. URL: ${queueUrl}`);
 
     const envPath = path.join(process.cwd(), ".env");
-    let envContent = "";
-    if (fs.existsSync(envPath)) {
-      envContent = fs.readFileSync(envPath, "utf-8");
-    }
+    let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : "";
 
-    if (envContent.includes("AWS_SQS_QUEUE_URL=")) {
-      // replace existing
-      envContent = envContent.replace(/AWS_SQS_QUEUE_URL=.*/g, `AWS_SQS_QUEUE_URL='${queueUrl}'`);
-    } else {
-      envContent += `\nAWS_SQS_QUEUE_URL='${queueUrl}'\n`;
-    }
+    // Remove existing SQS automated block if any to maintain clean structure
+    envContent = envContent.replace(/\n?# \[AUTOMATED - SQS\][\s\S]*?(?=\n# |$)/g, "");
+    envContent = envContent.replace(/AWS_SQS_QUEUE_URL=.*/g, "").trim();
 
-    fs.writeFileSync(envPath, envContent);
-    console.log("✅ .env file updated with AWS_SQS_QUEUE_URL");
+    // Append at the end
+    envContent += `\n\n# [AUTOMATED - SQS]\nAWS_SQS_QUEUE_URL='${queueUrl}'\n`;
+
+    fs.writeFileSync(envPath, envContent.trim() + "\n");
+    console.log("✅ .env file updated with AWS_SQS_QUEUE_URL (appended at bottom).");
 
   } catch (error) {
     console.error("❌ SQS setup failed:", error);

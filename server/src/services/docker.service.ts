@@ -27,7 +27,7 @@ class DockerService {
       `-e PROJECT_ID="${projectId}"`,
       `-e DEPLOYMENT_ID="${deploymentId}"`,
       `-e PROJECT_NAME="${projectName}"`,
-      `fast-deploy-builder:latest`
+      `build-container:latest`
     ].join(" ");
 
     console.log(`🛠️ Triggering local Docker build for project: ${projectName}...`);

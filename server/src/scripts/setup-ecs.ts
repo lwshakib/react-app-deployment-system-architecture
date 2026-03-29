@@ -74,12 +74,12 @@ async function autoPushDockerImage(repositoryUri: string) {
     console.log(`🔐 Logging into ECR: ${endpoint}...`);
     execSync(`docker login --username AWS --password ${password} ${endpoint}`, { stdio: "inherit" });
 
-    console.log(`\n🔨 Building Docker image: fast-deploy-builder:latest...`);
+    console.log(`\n🔨 Building Docker image: build-container:latest...`);
     const buildContext = path.join(process.cwd(), "..", "build-container");
-    execSync(`docker build -t fast-deploy-builder:latest ${buildContext}`, { stdio: "inherit" });
+    execSync(`docker build -t build-container:latest ${buildContext}`, { stdio: "inherit" });
 
     console.log(`🏷️ Tagging local image...`);
-    execSync(`docker tag fast-deploy-builder:latest ${repositoryUri}:latest`, { stdio: "inherit" });
+    execSync(`docker tag build-container:latest ${repositoryUri}:latest`, { stdio: "inherit" });
 
     console.log(`🚀 Pushing image to ECR (This will take a few minutes)...`);
     execSync(`docker push ${repositoryUri}:latest`, { stdio: "inherit" });
@@ -101,16 +101,16 @@ async function setupECS() {
       }]
     });
 
-    const executionRoleArn = await getOrCreateRole("FastDeployTaskExecutionRole", ecsAssumeRolePolicy);
+    const executionRoleArn = await getOrCreateRole("ReactAppDeployTaskExecutionRole", ecsAssumeRolePolicy);
     await iamClient.send(new AttachRolePolicyCommand({
-      RoleName: "FastDeployTaskExecutionRole",
+      RoleName: "ReactAppDeployTaskExecutionRole",
       PolicyArn: "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
     }));
 
-    const taskRoleArn = await getOrCreateRole("FastDeployTaskRole", ecsAssumeRolePolicy);
+    const taskRoleArn = await getOrCreateRole("ReactAppDeployTaskRole", ecsAssumeRolePolicy);
     // Grant AdministratorAccess to TaskRole for simplicity (S3, SQS, Logs, etc). In production, scope this down.
     await iamClient.send(new AttachRolePolicyCommand({
-      RoleName: "FastDeployTaskRole",
+      RoleName: "ReactAppDeployTaskRole",
       PolicyArn: "arn:aws:iam::aws:policy/AdministratorAccess"
     }));
     console.log("✅ IAM Roles configured.");
@@ -118,18 +118,18 @@ async function setupECS() {
     // 2. Setup ECR Repository
     let repositoryUri = "";
     try {
-      const ecrRes = await ecrClient.send(new DescribeRepositoriesCommand({ repositoryNames: ["fast-deploy-builder"] }));
+      const ecrRes = await ecrClient.send(new DescribeRepositoriesCommand({ repositoryNames: ["build-container"] }));
       const repos = ecrRes.repositories;
       const firstRepo = repos?.[0];
       if (!firstRepo || !firstRepo.repositoryUri) {
         throw new Error("❌ ECR repository found but URI is missing.");
       }
       repositoryUri = firstRepo.repositoryUri;
-      console.log(`ℹ️ ECR Repo fast-deploy-builder exists.`);
+      console.log(`ℹ️ ECR Repo build-container exists.`);
     } catch (error: any) {
       if (error.name === "RepositoryNotFoundException") {
-        console.log(`🔧 Creating ECR Repository: fast-deploy-builder...`);
-        const createEcr = await ecrClient.send(new CreateRepositoryCommand({ repositoryName: "fast-deploy-builder" }));
+        console.log(`🔧 Creating ECR Repository: build-container...`);
+        const createEcr = await ecrClient.send(new CreateRepositoryCommand({ repositoryName: "build-container" }));
         const repo = createEcr.repository;
         if (!repo || !repo.repositoryUri) {
           throw new Error("❌ ECR repository created but URI is missing.");
@@ -144,8 +144,8 @@ async function setupECS() {
     await autoPushDockerImage(repositoryUri);
 
     // 3. Create ECS Cluster
-    console.log(`🔧 Creating ECS Cluster: FastDeployCluster...`);
-    const clusterRes = await ecsClient.send(new CreateClusterCommand({ clusterName: "FastDeployCluster" }));
+    console.log(`🔧 Creating ECS Cluster: react-app-deploy-cluster...`);
+    const clusterRes = await ecsClient.send(new CreateClusterCommand({ clusterName: "react-app-deploy-cluster" }));
     const cluster = clusterRes.cluster;
     if (!cluster || !cluster.clusterArn) {
       throw new Error("❌ ECS Cluster created but Arn is missing.");
@@ -154,9 +154,9 @@ async function setupECS() {
     console.log(`✅ ECS Cluster created / verified.`);
 
     // 4. Register Task Definition
-    console.log(`🔧 Registering ECS Task Definition: fast-deploy-task...`);
+    console.log(`🔧 Registering ECS Task Definition: react-app-deploy-task...`);
     const taskDefRes = await ecsClient.send(new RegisterTaskDefinitionCommand({
-        family: "fast-deploy-task",
+        family: "react-app-deploy-task",
         cpu: "256", // 0.25 vCPU
         memory: "512", // 0.5 GB RAM
         networkMode: "awsvpc",
@@ -165,13 +165,13 @@ async function setupECS() {
         taskRoleArn,
         containerDefinitions: [
             {
-                name: "builder",
+                name: "build-container",
                 image: containerImageUri,
                 essential: true,
                 logConfiguration: {
                     logDriver: "awslogs",
                     options: {
-                        "awslogs-group": "/ecs/fast-deploy-task",
+                        "awslogs-group": "/ecs/react-app-deploy-task",
                         "awslogs-region": region,
                         "awslogs-stream-prefix": "ecs"
                     }
@@ -205,21 +205,30 @@ async function setupECS() {
     const envPath = path.join(process.cwd(), ".env");
     let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : "";
 
-    const updateEnv = (key: string, value: string) => {
-        if (envContent.includes(`${key}=`)) {
-            envContent = envContent.replace(new RegExp(`${key}=.*`, 'g'), `${key}='${value}'`);
-        } else {
-            envContent += `\n${key}='${value}'\n`;
-        }
-    };
+    // Remove existing ECS automated block if any to maintain clean structure
+    envContent = envContent.replace(/\n?# \[AUTOMATED - ECS\][\s\S]*?(?=\n# |$)/g, "");
+    
+    // Cleanup any orphaned variables if they exist
+    const ecsKeys = ["ECS_CLUSTER_ARN", "ECS_TASK_DEFINITION_ARN", "ECS_SUBNETS", "ECS_SECURITY_GROUPS"];
+    ecsKeys.forEach(key => {
+        envContent = envContent.replace(new RegExp(`^${key}=.*\\n?`, 'gm'), '');
+    });
+    envContent = envContent.trim();
 
-    updateEnv("ECS_CLUSTER_ARN", clusterArn);
-    updateEnv("ECS_TASK_DEFINITION_ARN", taskDefArn);
-    updateEnv("ECS_SUBNETS", subnetIds);
-    updateEnv("ECS_SECURITY_GROUPS", securityGroupId);
+    // Append new block at the end
+    const automatedBlock = [
+        "",
+        "# [AUTOMATED - ECS]",
+        `ECS_CLUSTER_ARN='${clusterArn}'`,
+        `ECS_TASK_DEFINITION_ARN='${taskDefArn}'`,
+        `ECS_SUBNETS='${subnetIds}'`,
+        `ECS_SECURITY_GROUPS='${securityGroupId}'`
+    ].join("\n");
 
-    fs.writeFileSync(envPath, envContent);
-    console.log(`\n🎉 ECS Setup Complete! Your server/.env was automatically updated!`);
+    envContent += automatedBlock;
+
+    fs.writeFileSync(envPath, envContent.trim() + "\n");
+    console.log(`\n🎉 ECS Setup Complete! Your server/.env was automatically updated (appended at bottom).`);
     console.log(`✅ The infrastructure and ECR image are fully deployed and ready for use!`);
     
   } catch (error) {
