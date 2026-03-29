@@ -124,4 +124,30 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Minimal Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.3 0 0); /* Subtle deep zinc/grey thumb */
+    border-radius: 99px;
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.4 0 0); /* Lighter on hover */
+  }
+
+  /* Firefox Support */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.3 0 0) transparent;
+  }
 }

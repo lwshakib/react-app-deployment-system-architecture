@@ -153,7 +153,7 @@ export default function ProjectDetails() {
                </div>
             </AccordionTrigger>
             <AccordionContent className="px-6 pb-6">
-              <div className="bg-black/40 rounded-lg border border-zinc-800 p-4 h-[400px] overflow-y-auto font-mono text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-zinc-800">
+              <div className="bg-black/40 rounded-lg border border-zinc-800 p-4 h-[400px] overflow-y-auto font-mono text-[11px] leading-relaxed">
                 {logs.length === 0 ? (
                     <div className="text-zinc-700 italic">Initializing build pipeline...</div>
                 ) : (
