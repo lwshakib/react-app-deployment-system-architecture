@@ -21,6 +21,7 @@ import {
 
 interface Deployment {
   id: string;
+  projectId: string;
   url: string;
   repo: string;
   status: "queued" | "building" | "ready" | "failed";
@@ -89,8 +90,8 @@ export default function Home() {
 
   const getStatusIcon = (status: Deployment["status"]) => {
     switch (status) {
-      case "queued": return <Clock className="size-3 text-zinc-500 animate-pulse" />;
-      case "building": return <Loader2 className="size-3 text-zinc-500 animate-spin" />;
+      case "queued": return <Clock className="size-3 text-zinc-500" />;
+      case "building": return <Loader2 className="size-3 text-blue-500/50" />;
       case "ready": return <CheckCircle2 className="size-3 text-green-500" />;
       case "failed": return <div className="size-1.5 rounded-full bg-red-500" />;
     }
@@ -142,7 +143,7 @@ export default function Home() {
             {deployments.map((deployment) => (
               <div 
                 key={deployment.id} 
-                onClick={() => router.push(`/project/${deployment.id}`)}
+                onClick={() => router.push(`/project/${deployment.projectId}`)}
                 className="group flex items-center justify-between py-3 hover:bg-zinc-900/40 transition-all cursor-pointer px-4 rounded-lg"
               >
                 <div className="flex items-center gap-3 min-w-0">

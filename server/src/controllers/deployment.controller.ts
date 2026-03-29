@@ -11,16 +11,26 @@ import { ApiResponse } from "../utils/ApiResponse";
 import logger from "../logger/winston.logger";
 
 export const getDeployments = asyncHandler(async (req: Request, res: Response) => {
-  const query = `
-    SELECT d.id, d.status, d.created_at, p.name as repo, p.sub_domain
+  const { projectId } = req.query;
+  let query = `
+    SELECT d.id, d.project_id, d.status, d.created_at, p.name as repo, p.sub_domain
     FROM deployments d JOIN projects p ON d.project_id = p.id
-    ORDER BY d.created_at DESC
   `;
-  const result = await postgresService.query(query);
+  const params: any[] = [];
+  
+  if (projectId) {
+    query += ` WHERE d.project_id = $1`;
+    params.push(projectId);
+  }
+  
+  query += ` ORDER BY d.created_at DESC`;
+
+  const result = await postgresService.query(query, params);
   const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
   
   const data = result.rows.map((row: any) => ({
     id: row.id,
+    projectId: row.project_id,
     repo: row.repo,
     url: proxyUrl.replace("://", `://${row.sub_domain}.`),
     status: row.status.toLowerCase(),
@@ -57,18 +67,34 @@ export const getDeploymentById = asyncHandler(async (req: Request, res: Response
 });
 
 export const createDeployment = asyncHandler(async (req: Request, res: Response) => {
-  const schema = z.object({ repo: z.string(), url: z.string().url() });
+  const { projectId } = req.params;
+  const schema = z.object({ 
+    repo: z.string().optional(), 
+    url: z.string().url().optional(),
+    projectId: z.string().uuid().optional() // From Body
+  });
+
   const safeParseResult = schema.safeParse(req.body);
   if (safeParseResult.error) {
     throw new ApiError(400, "Invalid request data", safeParseResult.error.issues);
   }
 
-  const { repo, url } = safeParseResult.data;
-  const projectRes = await postgresService.query(
-    "INSERT INTO projects (name, git_url, sub_domain) VALUES ($1, $2, $3) RETURNING *",
-    [repo, url, await generateUniqueSubDomain(repo)]
-  );
-  const project = projectRes.rows[0];
+  const { repo, url, projectId: bodyProjectId } = safeParseResult.data;
+  const effectiveProjectId = projectId || bodyProjectId;
+
+  let project;
+  if (effectiveProjectId) {
+    const projectRes = await postgresService.query("SELECT * FROM projects WHERE id = $1", [effectiveProjectId]);
+    if (projectRes.rowCount === 0) throw new ApiError(404, "Project not found");
+    project = projectRes.rows[0];
+  } else {
+    if (!repo || !url) throw new ApiError(400, "Repo name and Git URL are required for new projects");
+    const projectRes = await postgresService.query(
+      "INSERT INTO projects (name, git_url, sub_domain) VALUES ($1, $2, $3) RETURNING *",
+      [repo, url, await generateUniqueSubDomain(repo)]
+    );
+    project = projectRes.rows[0];
+  }
 
   const deployRes = await postgresService.query(
     "INSERT INTO deployments (project_id, status) VALUES ($1, 'QUEUED') RETURNING *",
@@ -102,21 +128,30 @@ export const deleteDeployment = asyncHandler(async (req: Request, res: Response)
   
   const { project_id, sub_domain } = metaRes.rows[0];
 
-  const prefix = `__outputs/${sub_domain}/`;
+  // Targeted cleanup: Only delete files for THIS specific deployment
+  const prefix = `__outputs/${sub_domain}/${id}/`;
   const s3Res = await s3Service.listObjects(prefix);
   
   if (s3Res.Contents && s3Res.Contents.length > 0) {
     const keys = s3Res.Contents.map((obj) => obj.Key!).filter(Boolean);
     await s3Service.deleteObjects(keys);
-    logger.info(`🗑️ S3 Cleanup: Deleted ${s3Res.Contents.length} objects for ${sub_domain}`);
+    logger.info(`🗑️ S3 Cleanup: Deleted ${s3Res.Contents.length} objects for deployment ${id}`);
   }
 
   await postgresService.query("DELETE FROM deployments WHERE id = $1", [id]);
-  await postgresService.query("DELETE FROM projects WHERE id = $1", [project_id]);
+  // Note: We don't delete the project here anymore to allow multiple deployments.
+  // A separate Project delete endpoint should be created if needed.
 
   eventBus.emit("deployment-status-changed");
   
   return res.status(200).json(new ApiResponse(200, null, "Deployment deleted successfully"));
+});
+
+export const getProjectById = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await postgresService.query("SELECT * FROM projects WHERE id = $1", [id]);
+  if (result.rowCount === 0) throw new ApiError(404, "Project not found");
+  return res.status(200).json(new ApiResponse(200, result.rows[0], "Project fetched successfully"));
 });
 
 export const getDeploymentFiles = asyncHandler(async (req: Request, res: Response) => {
@@ -132,7 +167,7 @@ export const getDeploymentFiles = asyncHandler(async (req: Request, res: Respons
   }
   
   const subDomain = projectRes.rows[0].sub_domain;
-  const prefix = `__outputs/${subDomain}/`;
+  const prefix = `__outputs/${subDomain}/${id}/`;
   const s3Res = await s3Service.listObjects(prefix);
   
   const files = s3Res.Contents?.map((item) => ({
@@ -154,7 +189,7 @@ export const dashboardStream = (req: Request, res: Response) => {
   const sendUpdate = async () => {
     try {
       const query = `
-        SELECT d.id, d.status, d.created_at, p.name as repo, p.sub_domain
+        SELECT d.id, d.project_id, d.status, d.created_at, p.name as repo, p.sub_domain
         FROM deployments d JOIN projects p ON d.project_id = p.id
         ORDER BY d.created_at DESC
       `;
@@ -162,6 +197,7 @@ export const dashboardStream = (req: Request, res: Response) => {
       const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
       const data = result.rows.map((row: any) => ({
         id: row.id,
+        projectId: row.project_id,
         repo: row.repo,
         url: proxyUrl.replace("://", `://${row.sub_domain}.`),
         status: row.status.toLowerCase(),

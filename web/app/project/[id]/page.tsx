@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, ExternalLink, Terminal, ShieldCheck, AlertCircle, Loader2, Globe } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Terminal, AlertCircle, Loader2, Globe, Rocket, History, Clock, CheckCircle2, XCircle, ShieldCheck, GitBranch, GitCommit, Plus, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { 
@@ -12,8 +12,20 @@ import {
   AccordionTrigger 
 } from "@/components/ui/accordion";
 
-interface LogEntry {
-  log: string;
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from "@/components/ui/tabs";
+
+interface Deployment {
+  id: string;
+  projectId: string;
+  repo: string;
+  url: string;
+  status: "queued" | "building" | "ready" | "failed";
+  created_at: string;
 }
 
 interface S3File {
@@ -25,100 +37,128 @@ interface S3File {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 export default function ProjectDetails() {
-  const { id } = useParams();
+  const { id: projectId } = useParams();
   const router = useRouter();
+  
+  const [project, setProject] = useState<any>(null);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
-  const [status, setStatus] = useState<string>("loading");
-  const [repo, setRepo] = useState<string>("");
-  const [url, setUrl] = useState<string>("");
   const [files, setFiles] = useState<S3File[]>([]);
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deploying, setDeploying] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  const fetchFiles = async () => {
+  const fetchProjectData = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/deployments/${id}/files`);
-      if (res.ok) {
-        const response = await res.json();
-        setFiles(response.data.files);
+      // 1. Fetch Project Metadata
+      const projectRes = await fetch(`${API_BASE_URL}/deployments/projects/${projectId}`);
+      if (projectRes.ok) {
+        const data = await projectRes.json();
+        setProject(data.data);
+      }
+
+      // 2. Fetch All Deployments for Project
+      const deploymentsRes = await fetch(`${API_BASE_URL}/deployments?projectId=${projectId}`);
+      if (deploymentsRes.ok) {
+        const data = await deploymentsRes.json();
+        setDeployments(data.data);
       }
     } catch (err) {
-      console.error("Error fetching files:", err);
+      console.error("Error fetching project data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLatestLogsAndFiles = async (deploymentId: string) => {
+    try {
+      const logRes = await fetch(`${API_BASE_URL}/logs/${deploymentId}`);
+      if (logRes.ok) {
+        const data = await logRes.json();
+        setLogs(data.data.logs.map((l: any) => l.log));
+      }
+
+      const filesRes = await fetch(`${API_BASE_URL}/deployments/${deploymentId}/files`);
+      if (filesRes.ok) {
+        const data = await filesRes.json();
+        setFiles(data.data.files);
+      }
+    } catch (err) {
+      console.error("Error fetching logs/files:", err);
     }
   };
 
   useEffect(() => {
-    const fetchMetadata = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/deployments/${id}`);
-        if (res.ok) {
-          const response = await res.json();
-          const current = response.data;
-          if (current) {
-            setRepo(current.repo);
-            setStatus(current.status);
-            setUrl(current.url);
-            if (current.status === "ready") fetchFiles();
-          }
-        }
-        
-        const logRes = await fetch(`${API_BASE_URL}/logs/${id}`);
-        if (logRes.ok) {
-          const response = await logRes.json();
-          setLogs(response.data.logs.map((l: any) => l.log));
-        }
-      } catch (err) {
-        console.error("Metadata fetch error:", err);
-      }
-    };
+    fetchProjectData();
 
-    fetchMetadata();
-
-    const logEventSource = new EventSource(`${API_BASE_URL}/logs/${id}/stream`);
-    logEventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setLogs((prev) => [...prev, data.log]);
-      } catch (err) {}
-    };
-
+    // SSE: Stream status changes
     const statusEventSource = new EventSource(`${API_BASE_URL}/deployments/stream`);
     statusEventSource.onmessage = (event) => {
       try {
         const all = JSON.parse(event.data);
-        const current = all.find((d: any) => d.id === id);
-        if (current) {
-          if (current.status === "ready" && status !== "ready") fetchFiles();
-          setStatus(current.status);
-          setUrl(current.url);
+        const projectDeployments = all.filter((d: any) => d.projectId === projectId);
+        if (projectDeployments.length > 0) {
+          setDeployments(projectDeployments);
         }
       } catch (err) {}
     };
 
-    return () => {
-      logEventSource.close();
-      statusEventSource.close();
-    };
-  }, [id]);
+    return () => statusEventSource.close();
+  }, [projectId]);
+
+  useEffect(() => {
+    const latest = deployments[0];
+    if (latest && (latest.status === "building" || latest.status === "ready" || latest.status === "failed")) {
+      fetchLatestLogsAndFiles(latest.id);
+
+      if (latest.status === "building") {
+        const logEventSource = new EventSource(`${API_BASE_URL}/logs/${latest.id}/stream`);
+        logEventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            setLogs((prev) => [...prev, data.log]);
+          } catch (err) {}
+        };
+        return () => logEventSource.close();
+      }
+    }
+  }, [deployments]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
-  useEffect(() => {
-    if (status === "building") {
-      setExpandedItems(["logs"]);
-    } else if (isQueued || status === "loading") {
-      setExpandedItems([]);
+  const handleDeploy = async () => {
+    setDeploying(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/deployments/projects/${projectId}/deployments`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        setActiveTab("overview");
+      }
+    } catch (err) {
+      console.error("Deployment failed:", err);
+    } finally {
+      setDeploying(false);
     }
-  }, [status]);
+  };
 
-  const isReady = status === "ready";
-  const isQueued = status === "queued";
+  if (loading) return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <Loader2 className="size-8 text-zinc-500 animate-spin" />
+    </div>
+  );
+
+  const latestDeployment = deployments[0];
+  const latestSuccessful = deployments.find(d => d.status === "ready");
+  const productionUrl = latestSuccessful ? `http://${project?.sub_domain}.localhost:8080` : null;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 p-6 sm:p-20 font-sans">
-      <div className="max-w-4xl mx-auto space-y-10">
+      <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -132,95 +172,187 @@ export default function ProjectDetails() {
               <ChevronLeft className="size-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-zinc-100">{repo || "Deployment"}</h1>
-              <p className="text-xs text-zinc-500 font-mono mt-1 opacity-70 cursor-copy" onClick={() => navigator.clipboard.writeText(id as string)}>
-                {id}
-              </p>
+              <h1 className="text-2xl font-bold tracking-tight text-zinc-100">{project?.name || "Project Dashboard"}</h1>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-[10px] text-zinc-500 font-mono opacity-70 cursor-copy" onClick={() => navigator.clipboard.writeText(projectId as string)}>
+                  {projectId}
+                </p>
+                <div className="size-1 rounded-full bg-zinc-800" />
+                <a href={project?.git_url} target="_blank" className="text-[10px] text-zinc-500 hover:text-zinc-300 underline transition-colors">Source Repository</a>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-             <div className={`px-4 py-1.5 rounded-full text-[10px] uppercase tracking-widest font-bold border flex items-center gap-2 shadow-sm ${
-                 status === "ready" ? "bg-green-500/10 text-green-500 border-green-500/20" :
-                 status === "failed" ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                 "bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse"
-             }`}>
-                {status === "building" && <Loader2 className="size-3 animate-spin" />}
-                {status}
-             </div>
           </div>
-        </div>
 
-        {/* Accordion Sections */}
-        <Accordion type="multiple" value={expandedItems} onValueChange={setExpandedItems} className="space-y-4">
-          
-          <AccordionItem value="logs" disabled={isQueued} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${isQueued && 'opacity-40'}`}>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline group">
-               <div className="flex items-center gap-3">
-                  <Terminal className="size-4 text-zinc-500" />
-                  <span className="text-sm font-semibold text-zinc-300">Build Logs</span>
-               </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6">
-              <div className="bg-black/40 rounded-lg border border-zinc-800 p-4 h-[400px] overflow-y-auto font-mono text-[11px] leading-relaxed">
-                {logs.length === 0 ? (
-                    <div className="text-zinc-700 italic">Initializing build pipeline...</div>
-                ) : (
-                    logs.map((log, i) => <div key={i} className="mb-0.5 text-zinc-400"><span className="text-zinc-700 mr-2 select-none">{(i+1).toString().padStart(3, '0')}</span>{log}</div>)
-                )}
-                <div ref={logEndRef} />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="bg-transparent  p-1 w-fit">
+            <TabsTrigger value="overview" className="h-11 px-8 data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 font-semibold text-[13px]">Overview</TabsTrigger>
+            <TabsTrigger value="deployments" className="h-11 px-8 data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 font-semibold text-[13px]">Deployments</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {/* Vercel-Style Preview & Dashboard */}
+            <div className="grid grid-cols-1 lg:col-span-12 lg:grid-cols-12 gap-10 pt-4">
+              {/* Left: 16:9 Preview Pane */}
+              <div className="lg:col-span-8">
+                <div className="aspect-video bg-zinc-900/20 border border-zinc-900 rounded-xl overflow-hidden shadow-sm flex flex-col group transition-all hover:border-zinc-800">
+                  <div className="flex-1 bg-black/40 flex flex-col items-center justify-center relative">
+                    {productionUrl ? (
+                      <iframe 
+                        src={productionUrl} 
+                        className="w-full h-full border-none pointer-events-none opacity-90 block overflow-hidden" 
+                        title="Site Preview"
+                        scrolling="no"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-4 text-center opacity-30">
+                        <Rocket className="size-8 text-zinc-500" />
+                        <p className="text-xs font-medium text-zinc-500">Preview not available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </AccordionContent>
-          </AccordionItem>
 
-          <AccordionItem value="summary" disabled={!isReady} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${!isReady && 'opacity-40'}`}>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline group">
-               <div className="flex items-center gap-3">
-                  <ShieldCheck className="size-4 text-zinc-500" />
-                  <span className="text-sm font-semibold text-zinc-300">Deployment Summary</span>
-               </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6">
-               <div className="space-y-4">
-                  <p className="text-xs text-zinc-500">The following build artifacts were successfully generated and uploaded to S3.</p>
-                  <div className="grid grid-cols-1 gap-2">
-                     {files.map((file, i) => (
-                        <div key={i} className="flex items-center justify-between p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-[11px]">
-                           <span className="text-zinc-300 font-mono truncate max-w-[300px]">{file.key}</span>
-                           <span className="text-zinc-600">{(file.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                     ))}
+              {/* Right: Minimalist Metadata Dashboard */}
+              <div className="lg:col-span-4 space-y-8 h-full flex flex-col py-1">
+                {/* Deployment section */}
+                <div className="space-y-1.5">
+                  <span className="text-[12px] text-zinc-500 font-medium">Deployment</span>
+                  <p className="text-[13px] font-semibold text-zinc-200 truncate tracking-tight hover:text-zinc-100 cursor-pointer transition-colors">
+                    {productionUrl ? `${project?.sub_domain}.localhost:8080` : "None"}
+                  </p>
+                </div>
+
+                {/* Domains section */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-zinc-500 font-medium">Domains</span>
                   </div>
-               </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="domain" disabled={!isReady} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${!isReady && 'opacity-40'}`}>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline group">
-               <div className="flex items-center gap-3">
-                  <Globe className="size-4 text-zinc-500" />
-                  <span className="text-sm font-semibold text-zinc-300">Custom Domains</span>
-               </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-6 pb-6">
-               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-zinc-900/50 border border-dashed border-zinc-700 rounded-lg">
-                  <div className="space-y-1">
-                     <p className="text-xs font-semibold text-zinc-300">{url.replace("http://", "")}</p>
-                     <p className="text-[10px] text-zinc-500">Primary local deployment domain</p>
+                  <div className="flex items-center gap-2 group cursor-pointer inline-flex">
+                    <p className="text-[13px] font-semibold text-zinc-200">
+                      {project?.sub_domain}.localhost:8080
+                    </p>
+                    <ExternalLink className="size-3 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <Button 
-                    className="bg-zinc-100 text-zinc-900 hover:bg-white gap-2 h-8 px-4 text-[11px] font-bold transition-all"
-                    onClick={() => window.open(url, "_blank")}
-                  >
-                    Visit Site <ExternalLink className="size-3" />
-                  </Button>
-               </div>
-            </AccordionContent>
-          </AccordionItem>
+                </div>
 
-        </Accordion>
+                {/* Status & Created grid */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Status</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`size-2 rounded-full ${
+                        latestDeployment?.status === "ready" ? "bg-emerald-500" :
+                        latestDeployment?.status === "failed" ? "bg-red-500" :
+                        "bg-blue-500 animate-pulse"
+                      }`} />
+                      <span className="text-[13px] font-semibold text-zinc-200 capitalize">
+                        {latestDeployment?.status || "Idle"}
+                      </span>
+                    </div>
+                  </div>
 
+                  <div className="space-y-2">
+                    <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Created</span>
+                    <div className="flex items-center gap-2">
+                      <div className="size-5 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                        <User className="size-3 text-zinc-600" />
+                      </div>
+                      <span className="text-[13px] font-semibold text-zinc-300">
+                        {latestDeployment ? new Date(latestDeployment.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "--"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Source section */}
+                <div className="space-y-2.5">
+                  <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Source</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 opacity-80 hover:opacity-100 cursor-pointer transition-opacity">
+                      <GitBranch className="size-3.5 text-zinc-500" />
+                      <span className="text-[13px] font-semibold text-zinc-200">main</span>
+                    </div>
+                    <div className="flex items-center gap-2 opacity-60 hover:opacity-100 cursor-pointer transition-opacity">
+                      <GitCommit className="size-3.5 text-zinc-500" />
+                      <span className="text-[13px] font-medium text-zinc-400">
+                        {latestDeployment?.id.slice(0, 7) || "---"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="deployments" className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
+            <div className="flex justify-end">
+              <Button 
+                className="bg-zinc-100 text-zinc-950 hover:bg-zinc-200 gap-2 font-bold px-6 h-10 shadow-lg shadow-white/5 active:scale-95 transition-all text-[13px]"
+                onClick={handleDeploy}
+                disabled={deploying || (latestDeployment && (latestDeployment.status === "building" || latestDeployment.status === "queued"))}
+              >
+                {deploying || (latestDeployment && (latestDeployment.status === "building" || latestDeployment.status === "queued")) ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Creating...
+                    </>
+                ) : (
+                    <>
+                      <Rocket className="size-4" />
+                      Create Deployment
+                    </>
+                )}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+               {deployments.map((dep) => (
+                 <div 
+                     key={dep.id} 
+                     onClick={() => router.push(`/deployment/${dep.id}`)}
+                     className="flex items-center justify-between p-4 bg-zinc-950/40 border border-zinc-900 rounded-xl gap-4 hover:border-zinc-700/50 hover:bg-zinc-900/40 cursor-pointer transition-all group/item"
+                 >
+                    <div className="flex items-center gap-4 min-w-0">
+                       <div className={`flex-shrink-0 p-2 rounded-lg ${
+                         dep.status === "ready" ? "bg-green-500/10 text-green-500" :
+                         dep.status === "failed" ? "bg-red-500/10 text-red-500" :
+                         "bg-blue-500/10 text-blue-500"
+                       }`}>
+                         {dep.status === "ready" ? <CheckCircle2 className="size-4" /> :
+                          dep.status === "failed" ? <XCircle className="size-4" /> :
+                          <Loader2 className="size-4 animate-spin text-blue-500" />}
+                       </div>
+                       <div className="min-w-0 truncate">
+                          <div className="flex items-center gap-2">
+                             <span className="text-[11px] font-mono text-zinc-400 group-hover/item:text-zinc-100 transition-colors">#{dep.id}</span>
+                             <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold tracking-widest border ${
+                                dep.status === "ready" ? "bg-green-500/5 border-green-500/20 text-green-500/70" :
+                                dep.status === "failed" ? "bg-red-500/5 border-red-500/20 text-red-500/70" :
+                                "bg-blue-500/5 border-blue-500/20 text-blue-500/70"
+                             }`}>
+                                {dep.status}
+                             </span>
+                          </div>
+                          <p className="text-[10px] text-zinc-600 mt-1 font-medium">{new Date(dep.created_at).toLocaleString()}</p>
+                       </div>
+                    </div>
+                    
+                    <ChevronRight className="size-4 text-zinc-800 group-hover/item:text-zinc-400 group-hover/item:translate-x-1 transition-all" />
+                 </div>
+               ))}
+               {deployments.length === 0 && (
+                  <div className="text-zinc-700 text-center py-20 italic bg-zinc-900/10 border border-zinc-900 rounded-2xl">
+                    No deployment history found.
+                  </div>
+               )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
 }
+

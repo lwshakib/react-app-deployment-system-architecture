@@ -136,7 +136,7 @@ async function init() {
 
     for (const filePath of distFolderContents) {
       const fileKey = path.relative(distFolderPath, filePath).replace(/\\/g, "/"); // Ensure POSIX paths
-      const s3Path = `__outputs/${PROJECT_NAME}/${fileKey}`;
+      const s3Path = `__outputs/${PROJECT_NAME}/${DEPLOYMENT_ID}/${fileKey}`;
       
       await s3Service.uploadFile(filePath, s3Path);
       await kafkaService.publishLog(`✅ Uploaded: ${fileKey}`);
