@@ -1,6 +1,7 @@
 import { Kafka, type Producer } from "kafkajs";
 import fs from "fs";
 import path from "path";
+import logger from "../logger/winston.logger.js";
 
 class KafkaService {
   private kafka: Kafka;
@@ -31,9 +32,9 @@ class KafkaService {
   async connect() {
     try {
       await this.producer.connect();
-      console.log("✅ Kafka Producer connected");
+      logger.info("✅ Kafka Producer connected");
     } catch (err) {
-      console.error("❌ Kafka Connection Error:", err);
+      logger.error("❌ Kafka Connection Error:", err);
       throw err;
     }
   }
@@ -41,14 +42,14 @@ class KafkaService {
   async disconnect() {
     try {
       await this.producer.disconnect();
-      console.log("✅ Kafka Producer disconnected");
+      logger.info("✅ Kafka Producer disconnected");
     } catch (err) {
-      console.error("❌ Error disconnecting Kafka Producer:", err);
+      logger.error("❌ Error disconnecting Kafka Producer:", err);
     }
   }
 
   async publishLog(log: string) {
-    console.log(log);
+    logger.debug(`📤 Log: ${log}`);
     try {
       await this.producer.send({
         topic: "container-logs",
@@ -64,12 +65,12 @@ class KafkaService {
         ],
       });
     } catch (err) {
-      console.error("❌ Failed to publish log to Kafka:", err);
+      logger.error("❌ Failed to publish log to Kafka:", err);
     }
   }
 
   async publishStatus(status: "READY" | "FAILED") {
-    console.log(`📡 Publishing final status: ${status}`);
+    logger.info(`📡 Publishing final status: ${status}`);
     try {
       await this.producer.send({
         topic: "deployment-status",
@@ -85,7 +86,7 @@ class KafkaService {
         ],
       });
     } catch (err) {
-      console.error(`❌ Failed to publish ${status} status to Kafka:`, err);
+      logger.error(`❌ Failed to publish ${status} status to Kafka:`, err);
     }
   }
 }

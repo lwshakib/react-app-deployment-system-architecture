@@ -3,13 +3,14 @@ import path from "path";
 import fs from "fs";
 import { kafkaService } from "./services/kafka.services";
 import { s3Service } from "./services/s3.services";
+import logger from "./logger/winston.logger";
 
 const PROJECT_ID = process.env.PROJECT_ID!;
 const PROJECT_NAME = process.env.PROJECT_NAME || PROJECT_ID;
 const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID!;
 
 async function shutdown(exitCode: number = 0) {
-  console.log(`🛑 Shutting down with code ${exitCode}...`);
+  logger.info(`🛑 Shutting down with code ${exitCode}...`);
   await kafkaService.disconnect();
   process.exit(exitCode);
 }
@@ -64,12 +65,12 @@ async function runCommand(command: string, cwd: string, stepName: string): Promi
 }
 
 async function init() {
-  console.log("🚀 Initializing Build Process via Modernized Architecture...");
+  logger.info("🚀 Initializing Build Process via Modernized Architecture...");
   
   try {
     await kafkaService.connect();
   } catch (err: any) {
-    console.warn("❌ Kafka connection failed (logs will not be streamed):", err.message);
+    logger.warn(`❌ Kafka connection failed (logs will not be streamed): ${err.message}`);
   }
 
   const outDirPath = path.join(process.cwd(), "output");
@@ -152,7 +153,7 @@ async function init() {
 }
 
 init().catch(async (err) => {
-    await kafkaService.publishLog(`❌ ERROR in init: ${err.message}`);
+    logger.error(`❌ ERROR in init: ${err.message}`);
     await kafkaService.publishStatus("FAILED");
     await shutdown(1);
 });

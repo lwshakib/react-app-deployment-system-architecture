@@ -1,10 +1,12 @@
 import express from 'express';
 import httpProxy from 'http-proxy';
 import dotenv from 'dotenv';
-import path from 'path';
 import { ServerResponse } from 'http';
+import logger from './logger/winston.logger.js';
+import morganMiddleware from './logger/morgan.logger.js';
+import { errorHandler } from './middlewares/error.middlewares.js';
+import { ApiError } from './utils/ApiError.js';
 
-// Load environment variables from the proxy directory .env
 dotenv.config();
 
 const app = express();
@@ -14,70 +16,61 @@ const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME;
 const AWS_REGION = process.env.AWS_REGION || 'ap-south-1';
 
 if (!S3_BUCKET_NAME) {
-    console.error('❌ S3_BUCKET_NAME is not defined in .env');
+    logger.error('❌ S3_BUCKET_NAME is not defined in .env');
     process.exit(1);
 }
 
-// S3 Base Host (without path)
+app.use(morganMiddleware);
+
 const S3_BASE_HOST = `https://${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com`;
 
 const proxy = httpProxy.createProxyServer({
     target: S3_BASE_HOST,
     changeOrigin: true,
-    secure: false, // Bypass SSL validation for local testing if needed
+    secure: false,
 });
 
-app.use((req, res) => {
+app.use((req, res, next) => {
     const host = req.headers.host || '';
-    // Extract subdomain from host (e.g., 'project.localhost' -> 'project')
     const subdomain = host.split('.')[0];
     const urlPath = req.url === '/' ? '/index.html' : req.url;
 
-    // Rewrite URL to point to the correct output folder in S3: /__outputs/[subdomain]/[file]
     const newPath = `/__outputs/${subdomain}${urlPath}`;
-    console.log(`📡 Incoming: ${host}${req.url} -> Project: ${subdomain} (Rewriting to: ${newPath})`);
+    logger.info(`📡 Stream: ${host}${req.url} -> Project: ${subdomain} (Target: ${newPath})`);
     
-    // Mutate req.url before passing to proxy.web. This is safe and standard for http-proxy.
     req.url = newPath;
 
-    // Fix: Match the 4-argument signature of proxy.web (req, res, options, callback)
     return proxy.web(req, res, {}, (err: any) => {
-        console.error('❌ Proxy Web Error Callback:', err.message);
-        if (res instanceof ServerResponse) {
-            if (!res.headersSent) {
-                res.writeHead(502, { 'Content-Type': 'text/plain' });
-            }
-            res.end('Proxy error: Connection to S3 failed.');
-        } else {
-            // res is typed as Socket or ServerResponse. We handle Socket cases here.
-            (res as any).end?.();
-        }
+        logger.error(`❌ Proxy Callback Error: ${err.message}`);
+        next(new ApiError(502, `Proxy error: Connection to S3 failed. ${err.message}`));
     });
 });
 
-// Intercept and rewrite the request path for S3 __outputs folder
-proxy.on('proxyReq', (proxyReq, req, res) => {
-    // S3 MANDATORY: The Host header must match the bucket endpoint for AWS to accept the request
-    // Setting Host header in proxyReq event is safe and effective.
+proxy.on('proxyReq', (proxyReq) => {
     proxyReq.setHeader('Host', `${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com`);
 });
 
-// Graceful error handling for proxy timeouts or connection resets
 proxy.on('error', (err, req, res) => {
-    console.error('❌ Proxy Instance Error:', err.message);
+    logger.error(`❌ Proxy Instance Error: ${err.message}`);
     
     if (res instanceof ServerResponse) {
         if (!res.headersSent) {
-            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.writeHead(500, { 'Content-Type': 'application/json' });
         }
-        res.end('Deployment Proxy Error: Lost connection during S3 transfer.');
+        res.end(JSON.stringify({
+            success: false,
+            message: "Deployment Proxy Error: Lost connection during S3 transfer.",
+            error: err.message
+        }));
     } else {
         res.end();
     }
 });
 
+app.use(errorHandler);
+
 app.listen(PORT, () => {
-    console.log(`🚀 S3 Reverse Proxy Active on Port ${PORT}`);
-    console.log(`📂 Bucket: ${S3_BUCKET_NAME}`);
-    console.log(`🌐 Proxy Host: ${S3_BASE_HOST}`);
+    logger.info(`🚀 S3 Reverse Proxy Active on Port ${PORT}`);
+    logger.info(`📂 Bucket: ${S3_BUCKET_NAME}`);
+    logger.info(`🌐 Proxy Host: ${S3_BASE_HOST}`);
 });

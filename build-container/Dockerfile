@@ -1,33 +1,39 @@
-# Use Node.js 20 as the base for maximum compatibility with generic project builds
+# Use Node.js 20-slim as the base for broad build compatibility
 FROM node:20-slim
 
+# Labels for better image management
+LABEL maintainer="Antigravity Build System"
+LABEL description="Highly-performant build container for serverless React deployments"
+
 # Install system dependencies (git for cloning, curl for health checks, unzip for bun)
+# Consolidate RUN commands to reduce layer count and clean up apt cache
 RUN apt-get update && \
     apt-get install -y git curl unzip && \
+    curl -fsSL https://bun.sh/install | bash && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Bun for high-performance script execution
-RUN curl -fsSL https://bun.sh/install | bash
+# Add Bun to the system PATH
 ENV PATH="/root/.bun/bin:$PATH"
 
-# Install pnpm for broad package manager support
+# Install pnpm for broad package manager support in user projects
 RUN npm install -g pnpm
 
+# Set working directory
 WORKDIR /home/app
 
-# Copy dependency files and install
-COPY package*.json ./
-RUN npm install
+# Optimized Layer: Copy only dependency files first to leverage Docker's cache
+COPY package.json tsconfig.json bun.lock ./
 
-# Copy application source and orchestration script
+# Use high-performance Bun for container's internal dependency setup
+RUN bun install --production
+
+# Strategy: Copy source code and orchestration script after dependencies are ready
 COPY src/ ./src/
 COPY main.sh ./
+COPY kafka_ca.pem ./
 
-# Ensure kafka.pem is present in the build directory if required by your broker
-COPY kafka_ca.pem kafka_ca.pem 
-
-# Make the orchestration script executable
+# Final permissions check for execution
 RUN chmod +x main.sh
 
-# Entrypoint: clones repo and executes build script
+# Entrypoint: Bootstraps the orchestration logic
 ENTRYPOINT [ "/home/app/main.sh" ]
