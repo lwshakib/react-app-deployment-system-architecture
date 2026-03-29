@@ -87,7 +87,7 @@ apiRouter.get("/deployments/stream", (req: Request, res: Response) => {
       const data = result.rows.map((row: any) => ({
         id: row.id,
         repo: row.repo,
-        url: `http://${row.sub_domain}.localhost:9000`,
+        url: `http://${row.sub_domain}.localhost:8080`,
         status: row.status.toLowerCase(),
         created_at: row.created_at,
       }));
@@ -252,16 +252,36 @@ app.use("/api", apiRouter);
 async function initKafkaLogConsumer() {
   await kafkaService.listenBatch("container-logs", "api-server-logs-consumer", async ({ batch, heartbeat, resolveOffset }: any) => {
     const logEntries = [];
+    const validMessages = [];
+
     for (const message of batch.messages) {
       if (!message.value) continue;
       try {
         const data = JSON.parse(message.value.toString());
         logEntries.push({ event_id: uuidv4(), deployment_id: data.DEPLOYMENT_ID, log: data.log });
         eventBus.emit("log-received", data); // Bridge to SSE
+        validMessages.push(message);
+      } catch (err) {
+        console.error("❌ Kafka Log Consumer: Error parsing JSON:", err, message.value.toString());
+        // For malformed JSON, we resolve it to skip it, otherwise it blocks the queue
         resolveOffset(message.offset);
-      } catch (err) {}
+      }
     }
-    if (logEntries.length > 0) await clickHouseService.insert("log_events", logEntries);
+
+    if (logEntries.length > 0) {
+      try {
+        await clickHouseService.insert("log_events", logEntries);
+        // ONLY resolve offsets after successful storage in ClickHouse
+        for (const message of validMessages) {
+          resolveOffset(message.offset);
+        }
+        console.log(`📝 Log Consumer: Batched ${logEntries.length} logs to ClickHouse.`);
+      } catch (err) {
+        console.error("❌ Kafka Log Consumer: ClickHouse Insertion Failed:", err);
+        // We DON'T resolve offsets here, so Kafka will retry this batch later
+        throw err;
+      }
+    }
     await heartbeat();
   });
 }
@@ -271,11 +291,29 @@ async function initKafkaStatusConsumer() {
     for (const message of batch.messages) {
       if (!message.value) continue;
       try {
-        const { DEPLOYMENT_ID, status } = JSON.parse(message.value.toString());
-        await postgresService.query("UPDATE deployments SET status = $1 WHERE id = $2", [status, DEPLOYMENT_ID]);
+        const payload = message.value.toString();
+        const { DEPLOYMENT_ID, status } = JSON.parse(payload);
+        
+        const res = await postgresService.query("UPDATE deployments SET status = $1 WHERE id = $2", [status, DEPLOYMENT_ID]);
         eventBus.emit("deployment-status-changed"); // Bridge to SSE Dashboard
+        
+        if (res.rowCount === 0) {
+          console.warn(`⚠️ Status Consumer: No deployment found with ID ${DEPLOYMENT_ID}`);
+        } else {
+          console.log(`🔔 Status Consumer: Updated deployment ${DEPLOYMENT_ID} to ${status}`);
+        }
         resolveOffset(message.offset);
-      } catch (err) {}
+      } catch (err) {
+        console.error("❌ Kafka Status Consumer Error:", err, message.value?.toString());
+        // If it's a JSON parse error or DB error, we log it. 
+        // For parsing errors, we should skip (resolve). For DB errors, we might want to retry.
+        if (err instanceof SyntaxError) {
+          resolveOffset(message.offset);
+        } else {
+          // If it's a DB or logic error, rethrowing will trigger a Kafka retry for this batch
+          throw err;
+        }
+      }
     }
     await heartbeat();
   });

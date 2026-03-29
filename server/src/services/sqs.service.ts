@@ -80,22 +80,34 @@ class SQSService {
                 console.error("❌ Failed to update status to BUILDING:", err);
               }
 
-              if (isDev) {
-                // Trigger Local Docker Task (Faster, free, perfect for dev)
-                console.log(`🏠 Development Mode: Starting local Docker container build...`);
-                await dockerService.runTask(taskParams);
-              } else {
-                // Trigger AWS ECS Task (Production-grade, cloud-based)
-                console.log(`🌩️ Deployment Mode: Triggering AWS ECS task...`);
-                await ecsService.runTask(taskParams);
-              }
+              try {
+                if (isDev) {
+                  // Trigger Local Docker Task (Faster, free, perfect for dev)
+                  console.log(`🏠 Development Mode: Starting local Docker container build...`);
+                  await dockerService.runTask(taskParams);
+                } else {
+                  // Trigger AWS ECS Task (Production-grade, cloud-based)
+                  console.log(`🌩️ Deployment Mode: Triggering AWS ECS task...`);
+                  await ecsService.runTask(taskParams);
+                }
 
-              // Delete message after successful trigger
-              await this.client.send(new DeleteMessageCommand({
-                QueueUrl: this.queueUrl,
-                ReceiptHandle: message.ReceiptHandle,
-              }));
-              console.log("✅ Message deleted from SQS:", message.MessageId);
+                // Delete message after successful trigger
+                await this.client.send(new DeleteMessageCommand({
+                  QueueUrl: this.queueUrl,
+                  ReceiptHandle: message.ReceiptHandle,
+                }));
+                console.log("✅ Message deleted from SQS:", message.MessageId);
+              } catch (error) {
+                console.error("❌ Failed to execute build task, updating status to FAILED:", error);
+                await postgresService.query("UPDATE deployments SET status = 'FAILED' WHERE id = $1", [payload.deploymentId]);
+                eventBus.emit("deployment-status-changed");
+                // We DON'T delete the message here if we want SQS to retry,
+                // but for now, we'll delete it to avoid infinite failure loops
+                await this.client.send(new DeleteMessageCommand({
+                  QueueUrl: this.queueUrl,
+                  ReceiptHandle: message.ReceiptHandle,
+                }));
+              }
             }
           }
         }

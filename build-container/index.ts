@@ -78,6 +78,19 @@ async function publishStatus(status: "READY" | "FAILED") {
   }
 }
 
+async function shutdown(exitCode: number = 0) {
+  console.log(`🛑 Shutting down with code ${exitCode}...`);
+  if (producer) {
+    try {
+      await producer.disconnect();
+      console.log("✅ Kafka Producer disconnected");
+    } catch (err) {
+      console.error("❌ Error disconnecting Kafka Producer:", err);
+    }
+  }
+  process.exit(exitCode);
+}
+
 async function getAllFiles(dirPath: string): Promise<string[]> {
   let results: string[] = [];
   if (!fs.existsSync(dirPath)) return [];
@@ -110,7 +123,7 @@ async function init() {
   if (!GIT_URL) {
     await publishLog("❌ ERROR: GIT_REPOSITORY__URL is missing!");
     await publishStatus("FAILED");
-    process.exit(1);
+    await shutdown(1);
   }
 
   const outDirPath = path.join(__dirname, "output");
@@ -124,13 +137,14 @@ async function init() {
     const p = exec(cloneCmd);
     p.stdout?.on("data", (data) => publishLog(data.toString()));
     p.stderr?.on("data", (data) => publishLog(data.toString()));
-    p.on("exit", (code) => {
+    p.on("exit", async (code) => {
       if (code === 0) {
         publishLog("✅ Repository cloned successfully.");
         resolve(true);
       } else {
         publishLog(`❌ Failed to clone repository with code ${code}`);
         reject(new Error(`Clone failed with code ${code}`));
+        await shutdown(1);
       }
     });
   });
@@ -154,7 +168,7 @@ async function init() {
     if (code !== 0) {
       await publishLog(`❌ Build failed with exit code ${code}`);
       await publishStatus("FAILED");
-      process.exit(1);
+      await shutdown(1);
     }
 
     await publishLog("✅ Build Complete");
@@ -171,7 +185,7 @@ async function init() {
     if (!fs.existsSync(distFolderPath)) {
       await publishLog(`❌ ERROR: No build output folder found (checked dist, build, out)`);
       await publishStatus("FAILED");
-      process.exit(1);
+      await shutdown(1);
     }
 
     await publishLog("✅ Build Complete");
@@ -198,11 +212,11 @@ async function init() {
 
       await publishLog("✨ Deployment Successful! Done.");
       await publishStatus("READY");
-      process.exit(0);
+      await shutdown(0);
     } catch (err: any) {
       await publishLog(`❌ ERROR during upload: ${err.message}`);
       await publishStatus("FAILED");
-      process.exit(1);
+      await shutdown(1);
     }
   });
 }
@@ -210,5 +224,5 @@ async function init() {
 init().catch(async (err) => {
     await publishLog(`❌ ERROR in init: ${err.message}`);
     await publishStatus("FAILED");
-    process.exit(1);
+    await shutdown(1);
 });
