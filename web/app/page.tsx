@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Rocket, Cpu, CheckCircle2, Clock, Globe, Trash2, ChevronRight } from "lucide-react";
+import { Rocket, Cpu, CheckCircle2, Clock, Globe, Trash2, ChevronRight, Loader2 } from "lucide-react";
 import { FaGithub as Github } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,7 +90,7 @@ export default function Home() {
   const getStatusIcon = (status: Deployment["status"]) => {
     switch (status) {
       case "queued": return <Clock className="size-3 text-zinc-500 animate-pulse" />;
-      case "building": return <Cpu className="size-3 text-blue-500 animate-spin" />;
+      case "building": return <Loader2 className="size-3 text-zinc-500 animate-spin" />;
       case "ready": return <CheckCircle2 className="size-3 text-green-500" />;
       case "failed": return <div className="size-1.5 rounded-full bg-red-500" />;
     }

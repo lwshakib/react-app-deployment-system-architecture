@@ -32,6 +32,7 @@ export default function ProjectDetails() {
   const [repo, setRepo] = useState<string>("");
   const [url, setUrl] = useState<string>("");
   const [files, setFiles] = useState<S3File[]>([]);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const fetchFiles = async () => {
@@ -104,6 +105,14 @@ export default function ProjectDetails() {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
+  useEffect(() => {
+    if (status === "building") {
+      setExpandedItems(["logs"]);
+    } else if (isQueued || status === "loading") {
+      setExpandedItems([]);
+    }
+  }, [status]);
+
   const isReady = status === "ready";
   const isQueued = status === "queued";
 
@@ -143,7 +152,7 @@ export default function ProjectDetails() {
         </div>
 
         {/* Accordion Sections */}
-        <Accordion type="multiple" defaultValue={["logs"]} className="space-y-4">
+        <Accordion type="multiple" value={expandedItems} onValueChange={setExpandedItems} className="space-y-4">
           
           <AccordionItem value="logs" disabled={isQueued} className={`border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/20 ${isQueued && 'opacity-40'}`}>
             <AccordionTrigger className="px-6 py-4 hover:no-underline group">
