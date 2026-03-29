@@ -16,8 +16,8 @@ class KafkaService {
     this.kafka = new Kafka({
       clientId: `docker-build-server-${this.deploymentId}`,
       brokers: [process.env.KAFKA_BROKER!],
-      ssl: process.env.KAFKA_CA_FILE ? {
-        ca: [fs.readFileSync(path.join(process.cwd(), process.env.KAFKA_CA_FILE), "utf-8")],
+      ssl: process.env.KAFKA_CA_CERT ? {
+        ca: [process.env.KAFKA_CA_CERT],
       } : undefined,
       sasl: {
         username: process.env.KAFKA_USERNAME!,

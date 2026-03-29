@@ -1,6 +1,4 @@
 import { Kafka, Producer, Consumer, Admin } from "kafkajs";
-import fs from "fs";
-import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import logger from "../logger/winston.logger";
 import clickHouseService from "./clickhouse.services";
@@ -18,7 +16,7 @@ class KafkaService {
     const username = process.env.KAFKA_USERNAME;
     const password = process.env.KAFKA_PASSWORD;
     const clientId = process.env.KAFKA_CLIENT_ID;
-    const caFile = process.env.KAFKA_CA_FILE;
+    const caCert = process.env.KAFKA_CA_CERT;
 
     if (!broker || !username || !password || !clientId) {
       throw new Error("❌ Kafka environment variables (KAFKA_BROKER, KAFKA_USERNAME, KAFKA_PASSWORD, KAFKA_CLIENT_ID) are missing. Infrastructure cannot be initialized.");
@@ -27,8 +25,8 @@ class KafkaService {
     this.kafka = new Kafka({
       clientId,
       brokers: [broker],
-      ssl: caFile ? {
-        ca: [fs.readFileSync(path.isAbsolute(caFile) ? caFile : path.join(process.cwd(), caFile), "utf-8")],
+      ssl: caCert ? {
+        ca: [caCert],
       } : undefined,
       sasl: {
         mechanism: "plain",

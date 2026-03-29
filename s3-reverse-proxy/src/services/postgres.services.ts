@@ -1,6 +1,4 @@
 import { Pool, PoolConfig } from 'pg';
-import fs from 'fs';
-import path from 'path';
 import logger from "../logger/winston.logger.js";
 
 class PostgresService {
@@ -8,24 +6,18 @@ class PostgresService {
 
   constructor() {
     const connectionString = process.env.DATABASE_URL;
-    const caFile = process.env.POSTGRES_CA_FILE;
+    const caCert = process.env.POSTGRES_CA_CERT;
 
     const config: PoolConfig = {
       connectionString,
     };
 
-    if (caFile) {
-      try {
-        const caPath = path.isAbsolute(caFile) ? caFile : path.join(process.cwd(), caFile);
-        const ca = fs.readFileSync(caPath, 'utf8');
-        config.ssl = {
-          rejectUnauthorized: true,
-          ca,
-        };
-        logger.info(`🔒 Postgres SSL CA certificate loaded from: ${caPath}`);
-      } catch (error) {
-        logger.error('❌ Failed to load Postgres CA certificate:', error);
-      }
+    if (caCert) {
+      config.ssl = {
+        rejectUnauthorized: true,
+        ca: caCert,
+      };
+      logger.info('🔒 Postgres SSL CA certificate loaded from environment.');
     }
 
     if (!connectionString) {

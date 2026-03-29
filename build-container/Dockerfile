@@ -30,7 +30,6 @@ RUN bun install --production
 # Strategy: Copy source code and orchestration script after dependencies are ready
 COPY src/ ./src/
 COPY main.sh ./
-COPY kafka_ca.pem ./
 
 # Final permissions check for execution
 RUN chmod +x main.sh

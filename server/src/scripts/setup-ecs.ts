@@ -1,4 +1,5 @@
 import { ECSClient, CreateClusterCommand, RegisterTaskDefinitionCommand } from "@aws-sdk/client-ecs";
+import { CloudWatchLogsClient, CreateLogGroupCommand, DescribeLogGroupsCommand, PutRetentionPolicyCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { ECRClient, CreateRepositoryCommand, DescribeRepositoriesCommand, GetAuthorizationTokenCommand } from "@aws-sdk/client-ecr";
 import { IAMClient, CreateRoleCommand, AttachRolePolicyCommand, GetRoleCommand } from "@aws-sdk/client-iam";
 import { EC2Client, DescribeVpcsCommand, DescribeSubnetsCommand, DescribeSecurityGroupsCommand } from "@aws-sdk/client-ec2";
@@ -21,6 +22,7 @@ const ecsClient = new ECSClient({ region, credentials });
 const ecrClient = new ECRClient({ region, credentials });
 const iamClient = new IAMClient({ region, credentials });
 const ec2Client = new EC2Client({ region, credentials });
+const cwLogsClient = new CloudWatchLogsClient({ region, credentials });
 const CONTAINER_NAME = "build-container";
 
 async function getOrCreateRole(roleName: string, assumeRolePolicyDocument: string) {
@@ -145,6 +147,21 @@ async function setupECS() {
     }
     const clusterArn = cluster.clusterArn;
     logger.info(`✅ ECS Cluster created / verified.`);
+
+    const logGroupName = `/ecs/${CONTAINER_NAME}`;
+    logger.info(`🔧 Ensuring CloudWatch Log Group: ${logGroupName}...`);
+    try {
+        await cwLogsClient.send(new CreateLogGroupCommand({ logGroupName }));
+        logger.info(`✅ Log Group ${logGroupName} created.`);
+    } catch (error: any) {
+        if (error.name === "ResourceAlreadyExistsException") {
+            logger.info(`ℹ️ Log Group ${logGroupName} already exists.`);
+        } else throw error;
+    }
+
+    // Set retention to 7 days
+    await cwLogsClient.send(new PutRetentionPolicyCommand({ logGroupName, retentionInDays: 7 }));
+    logger.info(`✅ Log Group retention set to 7 days.`);
 
     logger.info(`🔧 Registering ECS Task Definition: react-app-deploy-task...`);
     const taskDefRes = await ecsClient.send(new RegisterTaskDefinitionCommand({
