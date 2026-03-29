@@ -30,6 +30,32 @@ export const getDeployments = asyncHandler(async (req: Request, res: Response) =
   return res.status(200).json(new ApiResponse(200, data, "Deployments fetched successfully"));
 });
 
+export const getDeploymentById = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const query = `
+    SELECT d.id, d.status, d.created_at, p.name as repo, p.sub_domain
+    FROM deployments d JOIN projects p ON d.project_id = p.id
+    WHERE d.id = $1
+  `;
+  const result = await postgresService.query(query, [id]);
+  
+  if (result.rowCount === 0) {
+    throw new ApiError(404, "Deployment not found");
+  }
+
+  const row = result.rows[0];
+  const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
+  const data = {
+    id: row.id,
+    repo: row.repo,
+    url: proxyUrl.replace("://", `://${row.sub_domain}.`),
+    status: row.status.toLowerCase(),
+    created_at: row.created_at,
+  };
+
+  return res.status(200).json(new ApiResponse(200, data, "Deployment fetched successfully"));
+});
+
 export const createDeployment = asyncHandler(async (req: Request, res: Response) => {
   const schema = z.object({ repo: z.string(), url: z.string().url() });
   const safeParseResult = schema.safeParse(req.body);

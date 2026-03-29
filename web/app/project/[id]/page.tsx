@@ -39,8 +39,8 @@ export default function ProjectDetails() {
     try {
       const res = await fetch(`${API_BASE_URL}/deployments/${id}/files`);
       if (res.ok) {
-        const data = await res.json();
-        setFiles(data.files);
+        const response = await res.json();
+        setFiles(response.data.files);
       }
     } catch (err) {
       console.error("Error fetching files:", err);
@@ -50,10 +50,10 @@ export default function ProjectDetails() {
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/deployments`);
+        const res = await fetch(`${API_BASE_URL}/deployments/${id}`);
         if (res.ok) {
-          const all = await res.json();
-          const current = all.find((d: any) => d.id === id);
+          const response = await res.json();
+          const current = response.data;
           if (current) {
             setRepo(current.repo);
             setStatus(current.status);
@@ -64,8 +64,8 @@ export default function ProjectDetails() {
         
         const logRes = await fetch(`${API_BASE_URL}/logs/${id}`);
         if (logRes.ok) {
-          const data = await logRes.json();
-          setLogs(data.logs.map((l: any) => l.log));
+          const response = await logRes.json();
+          setLogs(response.data.logs.map((l: any) => l.log));
         }
       } catch (err) {
         console.error("Metadata fetch error:", err);
