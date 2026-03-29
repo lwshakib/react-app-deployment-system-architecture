@@ -1,23 +1,14 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { sqsService } from "../services/sqs.services";
 import { postgresService } from "../services/postgres.services";
 import { eventBus } from "../services/event-bus.services";
+import { s3Service } from "../services/s3.services";
 import { generateUniqueSubDomain } from "../utils/project.utils";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 import logger from "../logger/winston.logger";
-
-// AWS S3 Client Initialization
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION!,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
 
 export const getDeployments = asyncHandler(async (req: Request, res: Response) => {
   const query = `
@@ -86,20 +77,11 @@ export const deleteDeployment = asyncHandler(async (req: Request, res: Response)
   const { project_id, sub_domain } = metaRes.rows[0];
 
   const prefix = `__outputs/${sub_domain}/`;
-  const listCommand = new ListObjectsV2Command({
-    Bucket: process.env.S3_BUCKET_NAME!,
-    Prefix: prefix,
-  });
-
-  const s3Res = await s3Client.send(listCommand);
+  const s3Res = await s3Service.listObjects(prefix);
+  
   if (s3Res.Contents && s3Res.Contents.length > 0) {
-    const deleteCommand = new DeleteObjectsCommand({
-      Bucket: process.env.S3_BUCKET_NAME!,
-      Delete: {
-        Objects: s3Res.Contents.map((obj) => ({ Key: obj.Key! })),
-      },
-    });
-    await s3Client.send(deleteCommand);
+    const keys = s3Res.Contents.map((obj) => obj.Key!).filter(Boolean);
+    await s3Service.deleteObjects(keys);
     logger.info(`🗑️ S3 Cleanup: Deleted ${s3Res.Contents.length} objects for ${sub_domain}`);
   }
 
@@ -124,15 +106,11 @@ export const getDeploymentFiles = asyncHandler(async (req: Request, res: Respons
   }
   
   const subDomain = projectRes.rows[0].sub_domain;
-
-  const command = new ListObjectsV2Command({
-    Bucket: process.env.S3_BUCKET_NAME!,
-    Prefix: `__outputs/${subDomain}/`,
-  });
-
-  const s3Res = await s3Client.send(command);
+  const prefix = `__outputs/${subDomain}/`;
+  const s3Res = await s3Service.listObjects(prefix);
+  
   const files = s3Res.Contents?.map((item) => ({
-    key: item.Key?.replace(`__outputs/${subDomain}/`, ""),
+    key: item.Key?.replace(prefix, ""),
     size: item.Size,
     lastModified: item.LastModified,
   })) || [];

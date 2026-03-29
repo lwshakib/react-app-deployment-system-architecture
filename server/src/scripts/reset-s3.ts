@@ -1,16 +1,7 @@
-import { S3Client, ListObjectsV2Command, DeleteObjectsCommand, DeleteBucketCommand } from "@aws-sdk/client-s3";
+import { s3Service } from "../services/s3.services";
 import logger from "../logger/winston.logger";
 
-const region = process.env.AWS_REGION;
 const bucketName = process.env.S3_BUCKET_NAME;
-
-const s3Client = new S3Client({
-  region,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
 
 async function resetS3() {
   if (!bucketName) return;
@@ -18,22 +9,16 @@ async function resetS3() {
 
   try {
     // 1. List all objects
-    const listCommand = new ListObjectsV2Command({ Bucket: bucketName });
-    const listRes = await s3Client.send(listCommand);
+    const listRes = await s3Service.listObjects();
 
     if (listRes.Contents && listRes.Contents.length > 0) {
       logger.info(`🗑️ Deleting ${listRes.Contents.length} objects...`);
-      const deleteCommand = new DeleteObjectsCommand({
-        Bucket: bucketName,
-        Delete: {
-          Objects: listRes.Contents.map((obj) => ({ Key: obj.Key })),
-        },
-      });
-      await s3Client.send(deleteCommand);
+      const keys = listRes.Contents.map((obj) => obj.Key!).filter(Boolean);
+      await s3Service.deleteObjects(keys);
     }
 
     // 2. Delete bucket
-    await s3Client.send(new DeleteBucketCommand({ Bucket: bucketName }));
+    await s3Service.deleteBucket();
     logger.info("✅ S3 bucket deleted successfully.");
   } catch (error: any) {
     if (error.name === "NoSuchBucket") {
