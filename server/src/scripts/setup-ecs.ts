@@ -74,6 +74,10 @@ async function autoPushDockerImage(repositoryUri: string) {
     console.log(`🔐 Logging into ECR: ${endpoint}...`);
     execSync(`docker login --username AWS --password ${password} ${endpoint}`, { stdio: "inherit" });
 
+    console.log(`\n🔨 Building Docker image: fast-deploy-builder:latest...`);
+    const buildContext = path.join(process.cwd(), "..", "build-container");
+    execSync(`docker build -t fast-deploy-builder:latest ${buildContext}`, { stdio: "inherit" });
+
     console.log(`🏷️ Tagging local image...`);
     execSync(`docker tag fast-deploy-builder:latest ${repositoryUri}:latest`, { stdio: "inherit" });
 
@@ -224,4 +228,6 @@ async function setupECS() {
   }
 }
 
-setupECS();
+setupECS().then(() => {
+  process.exit(0);
+});

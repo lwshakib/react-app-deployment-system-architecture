@@ -18,4 +18,6 @@ async function setupKafka() {
   }
 }
 
-setupKafka();
+setupKafka().then(() => {
+  process.exit(0);
+});

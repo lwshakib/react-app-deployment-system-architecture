@@ -14,6 +14,9 @@ async function setupClickHouse() {
   `;
 
   try {
+    // Ensure database exists
+    await clickHouseService.exec("CREATE DATABASE IF NOT EXISTS analytics");
+    
     // Use the new exec method for DDL
     await clickHouseService.exec(createTableQuery);
     console.log("✅ ClickHouse log_events table is ready.");
@@ -25,4 +28,6 @@ async function setupClickHouse() {
   }
 }
 
-setupClickHouse();
+setupClickHouse().then(() => {
+  process.exit(0);
+});

@@ -9,14 +9,14 @@ class ClickHouseService {
     const password = process.env.CLICKHOUSE_PASSWORD;
     const database = process.env.CLICKHOUSE_DB;
 
-    if (!url || !username || !password || !database) {
-      throw new Error("❌ ClickHouse environment variables (CLICKHOUSE_URL, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD, CLICKHOUSE_DB) are missing.");
+    if (!url || !username || !database) {
+      throw new Error("❌ ClickHouse environment variables (CLICKHOUSE_URL, CLICKHOUSE_USER, CLICKHOUSE_DB) are missing.");
     }
 
     this.client = createClient({
       url,
       username,
-      password,
+      password: password || undefined,
       database,
     });
   }

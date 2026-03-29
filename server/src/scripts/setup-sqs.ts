@@ -64,4 +64,6 @@ async function setupSQS() {
   }
 }
 
-setupSQS();
+setupSQS().then(() => {
+  process.exit(0);
+});

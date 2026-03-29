@@ -41,4 +41,6 @@ async function setupDatabase() {
   }
 }
 
-setupDatabase();
+setupDatabase().then(() => {
+  process.exit(0);
+});

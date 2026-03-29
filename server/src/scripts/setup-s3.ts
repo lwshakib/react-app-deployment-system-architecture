@@ -88,4 +88,6 @@ async function setupS3() {
   }
 }
 
-setupS3();
+setupS3().then(() => {
+  process.exit(0);
+});

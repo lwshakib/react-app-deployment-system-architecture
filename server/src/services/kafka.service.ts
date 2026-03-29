@@ -120,6 +120,7 @@ class KafkaService {
   async disconnect() {
     if (this.producer) await this.producer.disconnect();
     if (this.consumer) await this.consumer.disconnect();
+    if (this.admin) await this.admin.disconnect();
     console.log("👋 Kafka disconnected");
   }
 }
