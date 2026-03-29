@@ -31,8 +31,14 @@ app.use((req, res) => {
     const host = req.headers.host || '';
     // Extract subdomain from host (e.g., 'project.localhost' -> 'project')
     const subdomain = host.split('.')[0];
+    const urlPath = req.url === '/' ? '/index.html' : req.url;
 
-    console.log(`📡 Incoming: ${host}${req.url} -> Project: ${subdomain}`);
+    // Rewrite URL to point to the correct output folder in S3: /__outputs/[subdomain]/[file]
+    const newPath = `/__outputs/${subdomain}${urlPath}`;
+    console.log(`📡 Incoming: ${host}${req.url} -> Project: ${subdomain} (Rewriting to: ${newPath})`);
+    
+    // Mutate req.url before passing to proxy.web. This is safe and standard for http-proxy.
+    req.url = newPath;
 
     // Fix: Match the 4-argument signature of proxy.web (req, res, options, callback)
     return proxy.web(req, res, {}, (err: any) => {
@@ -51,18 +57,9 @@ app.use((req, res) => {
 
 // Intercept and rewrite the request path for S3 __outputs folder
 proxy.on('proxyReq', (proxyReq, req, res) => {
-    const host = req.headers.host || '';
-    const subdomain = host.split('.')[0];
-    const url = req.url === '/' ? '/index.html' : req.url;
-
     // S3 MANDATORY: The Host header must match the bucket endpoint for AWS to accept the request
+    // Setting Host header in proxyReq event is safe and effective.
     proxyReq.setHeader('Host', `${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com`);
-
-    // Rewrite path to point to the correct output folder in S3: /__outputs/[subdomain]/[file]
-    const newPath = `/__outputs/${subdomain}${url}`;
-    
-    console.log(`🔄 Rewriting Path: ${req.url} -> ${newPath}`);
-    proxyReq.path = newPath;
 });
 
 // Graceful error handling for proxy timeouts or connection resets
