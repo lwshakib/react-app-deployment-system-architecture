@@ -5,7 +5,7 @@ import { z } from "zod";
 import { generateSlug } from "random-word-slugs";
 import { v4 as uuidv4 } from "uuid";
 import { EventEmitter } from "events";
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { sqsService } from "./services/sqs.service";
 import { kafkaService } from "./services/kafka.service";
 import { clickHouseService } from "./services/clickhouse.service";
@@ -194,11 +194,45 @@ apiRouter.post("/deployments", async (req: Request, res: Response) => {
 });
 
 apiRouter.delete("/deployments/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
   try {
-    await postgresService.query("DELETE FROM deployments WHERE id = $1", [req.params.id]);
+    // 1. Fetch subdomain and project_id for this deployment
+    const metaRes = await postgresService.query(
+      "SELECT p.id as project_id, p.sub_domain FROM projects p JOIN deployments d ON p.id = d.project_id WHERE d.id = $1",
+      [id]
+    );
+
+    if (metaRes.rowCount === 0) return res.status(404).json({ error: "Deployment not found" });
+    const { project_id, sub_domain } = metaRes.rows[0];
+
+    // 2. Clean up S3 folder
+    const prefix = `__outputs/${sub_domain}/`;
+    const listCommand = new ListObjectsV2Command({
+      Bucket: process.env.S3_BUCKET_NAME!,
+      Prefix: prefix,
+    });
+
+    const s3Res = await s3Client.send(listCommand);
+    if (s3Res.Contents && s3Res.Contents.length > 0) {
+      const deleteCommand = new DeleteObjectsCommand({
+        Bucket: process.env.S3_BUCKET_NAME!,
+        Delete: {
+          Objects: s3Res.Contents.map((obj) => ({ Key: obj.Key! })),
+        },
+      });
+      await s3Client.send(deleteCommand);
+      console.log(`🗑️ S3 Cleanup: Deleted ${s3Res.Contents.length} objects for ${sub_domain}`);
+    }
+
+    // 3. Delete records from Postgres (Project first if using cascading or just delete both)
+    // NOTE: In our 1:1 model, deleting the project should be safe if no other deployments exist
+    await postgresService.query("DELETE FROM deployments WHERE id = $1", [id]);
+    await postgresService.query("DELETE FROM projects WHERE id = $1", [project_id]);
+
     eventBus.emit("deployment-status-changed");
     res.json({ status: "success" });
   } catch (error) {
+    console.error("❌ Failed to delete deployment:", error);
     res.status(500).json({ error: "Failed to delete deployment" });
   }
 });
