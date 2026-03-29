@@ -292,8 +292,15 @@ async function initKafkaStatusConsumer() {
       if (!message.value) continue;
       try {
         const payload = message.value.toString();
-        const { DEPLOYMENT_ID, status } = JSON.parse(payload);
+        const data = JSON.parse(payload);
+        const { DEPLOYMENT_ID, status } = data;
         
+        if (!status) {
+            console.warn(`⚠️ Status Consumer: Received message without status for deployment ${DEPLOYMENT_ID}. Skipping DB update.`);
+            resolveOffset(message.offset);
+            continue;
+        }
+
         const res = await postgresService.query("UPDATE deployments SET status = $1 WHERE id = $2", [status, DEPLOYMENT_ID]);
         eventBus.emit("deployment-status-changed"); // Bridge to SSE Dashboard
         
@@ -305,12 +312,9 @@ async function initKafkaStatusConsumer() {
         resolveOffset(message.offset);
       } catch (err) {
         console.error("❌ Kafka Status Consumer Error:", err, message.value?.toString());
-        // If it's a JSON parse error or DB error, we log it. 
-        // For parsing errors, we should skip (resolve). For DB errors, we might want to retry.
         if (err instanceof SyntaxError) {
           resolveOffset(message.offset);
         } else {
-          // If it's a DB or logic error, rethrowing will trigger a Kafka retry for this batch
           throw err;
         }
       }

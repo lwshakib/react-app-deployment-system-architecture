@@ -5,7 +5,7 @@ import path from "path";
 class KafkaService {
   private kafka: Kafka;
   private producer: Producer | null = null;
-  private consumer: Consumer | null = null;
+  private consumers: Consumer[] = [];
   private admin: Admin | null = null;
 
   constructor() {
@@ -101,15 +101,16 @@ class KafkaService {
    */
   async listenBatch(topic: string, groupId: string, onBatch: any) {
     try {
-      this.consumer = this.kafka.consumer({ groupId });
-      await this.consumer.connect();
-      await this.consumer.subscribe({ topic, fromBeginning: true });
-      await this.consumer.run({
+      const consumer = this.kafka.consumer({ groupId });
+      await consumer.connect();
+      await consumer.subscribe({ topic, fromBeginning: true });
+      await consumer.run({
         eachBatch: onBatch,
       });
+      this.consumers.push(consumer);
       console.log(`📡 Listening to Kafka topic (batch mode): ${topic}`);
     } catch (error) {
-      console.error("❌ Failed to start Kafka batch consumer:", error);
+      console.error(`❌ Failed to start Kafka batch consumer for topic ${topic}:`, error);
       throw error;
     }
   }
@@ -119,7 +120,9 @@ class KafkaService {
    */
   async disconnect() {
     if (this.producer) await this.producer.disconnect();
-    if (this.consumer) await this.consumer.disconnect();
+    for (const consumer of this.consumers) {
+      await consumer.disconnect();
+    }
     if (this.admin) await this.admin.disconnect();
     console.log("👋 Kafka disconnected");
   }
