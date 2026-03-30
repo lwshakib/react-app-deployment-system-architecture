@@ -1,8 +1,8 @@
 import { CreateQueueCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_SQS_QUEUE_URL } from "../envs";
-import fs from "fs";
 import path from "path";
 import logger from "../logger/winston.logger";
+import { updateEnv } from "../utils/env-updater";
 
 const region = AWS_REGION;
 const accessKeyId = AWS_ACCESS_KEY_ID;
@@ -45,18 +45,11 @@ async function setupSQS() {
 
     logger.info(`✅ Queue created successfully. URL: ${queueUrl}`);
 
-    const envPath = path.join(process.cwd(), ".env");
-    let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : "";
-
-    // Remove existing SQS automated block if any to maintain clean structure
-    envContent = envContent.replace(/\n?# \[AUTOMATED - SQS\][\s\S]*?(?=\n# |$)/g, "");
-    envContent = envContent.replace(/AWS_SQS_QUEUE_URL=.*/g, "").trim();
-
-    // Append at the end
-    envContent += `\n\n# [AUTOMATED - SQS]\nAWS_SQS_QUEUE_URL='${queueUrl}'\n`;
-
-    fs.writeFileSync(envPath, envContent.trim() + "\n");
-    logger.info("✅ .env file updated with AWS_SQS_QUEUE_URL (appended at bottom).");
+    logger.info(`✅ Queue created successfully. URL: ${queueUrl}`);
+    
+    // Surgically update or add to .env
+    updateEnv("AWS_SQS_QUEUE_URL", queueUrl);
+    logger.info("✅ .env file updated with AWS_SQS_QUEUE_URL.");
 
   } catch (error) {
     logger.error("❌ SQS setup failed:", error);

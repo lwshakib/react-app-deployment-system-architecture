@@ -4,10 +4,10 @@ import { CloudWatchLogsClient, CreateLogGroupCommand, DescribeLogGroupsCommand, 
 import { ECRClient, CreateRepositoryCommand, DescribeRepositoriesCommand, GetAuthorizationTokenCommand } from "@aws-sdk/client-ecr";
 import { IAMClient, CreateRoleCommand, AttachRolePolicyCommand, GetRoleCommand } from "@aws-sdk/client-iam";
 import { EC2Client, DescribeVpcsCommand, DescribeSubnetsCommand, DescribeSecurityGroupsCommand } from "@aws-sdk/client-ec2";
-import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
 import logger from "../logger/winston.logger";
+import { updateEnv } from "../utils/env-updater";
 
 const region = AWS_REGION;
 const accessKeyId = AWS_ACCESS_KEY_ID;
@@ -220,31 +220,14 @@ async function setupECS() {
     const securityGroupId = securityGroups.SecurityGroups?.[0]?.GroupId || "";
     logger.info(`✅ Discovered Network details.`);
 
-    const envPath = path.join(process.cwd(), ".env");
-    let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf-8") : "";
+    // Surgically update or add ECS variables to .env
+    updateEnv("ECS_CLUSTER_ARN", clusterArn);
+    updateEnv("ECS_TASK_DEFINITION_ARN", taskDefArn);
+    updateEnv("ECS_CONTAINER_NAME", CONTAINER_NAME);
+    updateEnv("ECS_SUBNETS", subnetIds);
+    updateEnv("ECS_SECURITY_GROUPS", securityGroupId);
 
-    envContent = envContent.replace(/\n?# \[AUTOMATED - ECS\][\s\S]*?(?=\n# |$)/g, "");
-    
-    const ecsKeys = ["ECS_CLUSTER_ARN", "ECS_TASK_DEFINITION_ARN", "ECS_CONTAINER_NAME", "ECS_SUBNETS", "ECS_SECURITY_GROUPS"];
-    ecsKeys.forEach(key => {
-        envContent = envContent.replace(new RegExp(`^${key}=.*\\n?`, 'gm'), '');
-    });
-    envContent = envContent.trim();
-
-    const automatedBlock = [
-        "",
-        "# [AUTOMATED - ECS]",
-        `ECS_CLUSTER_ARN='${clusterArn}'`,
-        `ECS_TASK_DEFINITION_ARN='${taskDefArn}'`,
-        `ECS_CONTAINER_NAME='${CONTAINER_NAME}'`,
-        `ECS_SUBNETS='${subnetIds}'`,
-        `ECS_SECURITY_GROUPS='${securityGroupId}'`
-    ].join("\n");
-
-    envContent += automatedBlock;
-
-    fs.writeFileSync(envPath, envContent.trim() + "\n");
-    logger.info(`\n🎉 ECS Setup Complete! Your server/.env was automatically updated (appended at bottom).`);
+    logger.info(`\n🎉 ECS Setup Complete! Your server/.env was automatically updated.`);
     logger.info(`✅ The infrastructure and ECR image are fully deployed and ready for use!`);
     
   } catch (error) {

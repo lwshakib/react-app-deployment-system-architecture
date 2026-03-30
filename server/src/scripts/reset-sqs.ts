@@ -1,8 +1,8 @@
 import { SQSClient, DeleteQueueCommand, GetQueueUrlCommand } from "@aws-sdk/client-sqs";
 import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_SQS_QUEUE_URL } from "../envs";
-import fs from "fs";
 import path from "path";
 import logger from "../logger/winston.logger";
+import { updateEnv } from "../utils/env-updater";
 
 const region = AWS_REGION;
 const accessKeyId = AWS_ACCESS_KEY_ID;
@@ -34,19 +34,9 @@ async function resetSQS() {
       logger.info(`✅ Queue ${queueName} deleted successfully.`);
     }
 
-    // .env Cleanup
-    const envPath = path.join(process.cwd(), ".env");
-    if (fs.existsSync(envPath)) {
-      let envContent = fs.readFileSync(envPath, "utf-8");
-      
-      // Remove automated SQS block
-      envContent = envContent.replace(/\n?# \[AUTOMATED - SQS\][\s\S]*?(?=\n# |$)/g, "").trim();
-      // Safeguard: remove any orphaned AWS_SQS_QUEUE_URL
-      envContent = envContent.replace(/AWS_SQS_QUEUE_URL=.*/g, "").trim();
-
-      fs.writeFileSync(envPath, envContent + "\n");
-      logger.info("✅ .env file cleaned up for SQS.");
-    }
+    // .env Update with dummy value
+    updateEnv("AWS_SQS_QUEUE_URL", "https://sqs.ap-south-1.amazonaws.com/YOUR_ACCOUNT_ID/YOUR_QUEUE_NAME");
+    logger.info("✅ .env file updated with placeholder for SQS.");
 
   } catch (error: any) {
     if (error.name === "QueueDoesNotExist") {

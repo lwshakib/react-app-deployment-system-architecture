@@ -2,9 +2,9 @@ import { ECSClient, DeleteClusterCommand, DeregisterTaskDefinitionCommand, ListT
 import { ECRClient, DeleteRepositoryCommand } from "@aws-sdk/client-ecr";
 import { IAMClient, DeleteRoleCommand, DetachRolePolicyCommand, ListAttachedRolePoliciesCommand } from "@aws-sdk/client-iam";
 import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY } from "../envs";
-import fs from "fs";
 import path from "path";
 import logger from "../logger/winston.logger";
+import { updateEnv } from "../utils/env-updater";
 
 const region = AWS_REGION;
 const accessKeyId = AWS_ACCESS_KEY_ID;
@@ -62,21 +62,13 @@ async function resetECS() {
       } catch (e) {}
     }
 
-    // .env Cleanup
-    const envPath = path.join(process.cwd(), ".env");
-    if (fs.existsSync(envPath)) {
-      let envContent = fs.readFileSync(envPath, "utf-8");
-      
-      envContent = envContent.replace(/\n?# \[AUTOMATED - ECS\][\s\S]*?(?=\n# |$)/g, "").trim();
-      
-      const ecsKeys = ["ECS_CLUSTER_ARN", "ECS_TASK_DEFINITION_ARN", "ECS_SUBNETS", "ECS_SECURITY_GROUPS"];
-      ecsKeys.forEach(key => {
-          envContent = envContent.replace(new RegExp(`^${key}=.*\\n?`, 'gm'), '');
-      });
-
-      fs.writeFileSync(envPath, envContent.trim() + "\n");
-      logger.info("✅ .env file cleaned up for ECS.");
-    }
+    // .env Update with placeholders
+    updateEnv("ECS_CLUSTER_ARN", "arn:aws:ecs:ap-south-1:YOUR_ACCOUNT_ID:cluster/YOUR_CLUSTER_NAME");
+    updateEnv("ECS_TASK_DEFINITION_ARN", "arn:aws:ecs:ap-south-1:YOUR_ACCOUNT_ID:task-definition/YOUR_TASK_NAME:REVISION");
+    updateEnv("ECS_CONTAINER_NAME", "build-container");
+    updateEnv("ECS_SUBNETS", "subnet-...,subnet-...");
+    updateEnv("ECS_SECURITY_GROUPS", "sg-...");
+    logger.info("✅ .env file updated with placeholders for ECS.");
 
     logger.info("🎉 ECS Reset Complete!");
   } catch (error) {
