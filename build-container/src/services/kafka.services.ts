@@ -2,6 +2,7 @@ import { Kafka, type Producer } from "kafkajs";
 import fs from "fs";
 import path from "path";
 import logger from "../logger/winston.logger.js";
+import { DEPLOYMENT_ID, KAFKA_BROKER, KAFKA_CA_CERT, KAFKA_PASSWORD, KAFKA_USERNAME, PROJECT_ID } from "../envs";
 
 class KafkaService {
   private kafka: Kafka;
@@ -10,18 +11,18 @@ class KafkaService {
   private deploymentId: string;
 
   constructor() {
-    this.projectId = process.env.PROJECT_ID!;
-    this.deploymentId = process.env.DEPLOYMENT_ID!;
+    this.projectId = PROJECT_ID;
+    this.deploymentId = DEPLOYMENT_ID;
     
     this.kafka = new Kafka({
       clientId: `docker-build-server-${this.deploymentId}`,
-      brokers: [process.env.KAFKA_BROKER!],
-      ssl: process.env.KAFKA_CA_CERT ? {
-        ca: [process.env.KAFKA_CA_CERT],
+      brokers: [KAFKA_BROKER],
+      ssl: KAFKA_CA_CERT ? {
+        ca: [KAFKA_CA_CERT],
       } : undefined,
       sasl: {
-        username: process.env.KAFKA_USERNAME!,
-        password: process.env.KAFKA_PASSWORD!,
+        username: KAFKA_USERNAME,
+        password: KAFKA_PASSWORD,
         mechanism: "plain",
       },
     });

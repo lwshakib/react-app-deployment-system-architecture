@@ -2,6 +2,7 @@ import { Kafka, Producer, Consumer, Admin } from "kafkajs";
 import { v4 as uuidv4 } from "uuid";
 import logger from "../logger/winston.logger";
 import clickHouseService from "./clickhouse.services";
+import { KAFKA_BROKER, KAFKA_CA_CERT, KAFKA_CLIENT_ID, KAFKA_PASSWORD, KAFKA_USERNAME } from "../envs";
 import postgresService from "./postgres.services";
 import eventBus from "./event-bus.services";
 
@@ -12,11 +13,11 @@ class KafkaService {
   private admin: Admin | null = null;
 
   constructor() {
-    const broker = process.env.KAFKA_BROKER;
-    const username = process.env.KAFKA_USERNAME;
-    const password = process.env.KAFKA_PASSWORD;
-    const clientId = process.env.KAFKA_CLIENT_ID;
-    const caCert = process.env.KAFKA_CA_CERT;
+    const broker = KAFKA_BROKER;
+    const username = KAFKA_USERNAME;
+    const password = KAFKA_PASSWORD;
+    const clientId = KAFKA_CLIENT_ID;
+    const caCert = KAFKA_CA_CERT;
 
     if (!broker || !username || !password || !clientId) {
       throw new Error("❌ Kafka environment variables (KAFKA_BROKER, KAFKA_USERNAME, KAFKA_PASSWORD, KAFKA_CLIENT_ID) are missing. Infrastructure cannot be initialized.");

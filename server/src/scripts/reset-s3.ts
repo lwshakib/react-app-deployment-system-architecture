@@ -1,7 +1,14 @@
 import { s3Service } from "../services/s3.services";
 import logger from "../logger/winston.logger";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME } from "../envs";
 
-const bucketName = process.env.S3_BUCKET_NAME;
+const region = AWS_REGION;
+const bucketName = S3_BUCKET_NAME;
+
+if (!region || !bucketName) {
+  logger.error("❌ Missing AWS environment variables (AWS_REGION, S3_BUCKET_NAME).");
+  process.exit(1);
+}
 
 async function resetS3() {
   if (!bucketName) return;

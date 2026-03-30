@@ -4,10 +4,7 @@ import fs from "fs";
 import { kafkaService } from "./services/kafka.services";
 import { s3Service } from "./services/s3.services";
 import logger from "./logger/winston.logger";
-
-const PROJECT_ID = process.env.PROJECT_ID!;
-const PROJECT_NAME = process.env.PROJECT_NAME || PROJECT_ID;
-const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID!;
+import { DEPLOYMENT_ID, GIT_REPOSITORY__URL, PROJECT_ID } from "./envs";
 
 async function shutdown(exitCode: number = 0) {
   logger.info(`🛑 Shutting down with code ${exitCode}...`);
@@ -75,8 +72,7 @@ async function init() {
 
   const outDirPath = path.join(process.cwd(), "output");
 
-  const GIT_URL = process.env.GIT_REPOSITORY__URL;
-  if (!GIT_URL) {
+  if (!GIT_REPOSITORY__URL) {
     await kafkaService.publishLog("❌ ERROR: GIT_REPOSITORY__URL is missing!");
     await kafkaService.publishStatus("FAILED");
     await shutdown(1);
@@ -89,7 +85,7 @@ async function init() {
   }
 
   // 1. Clone Repository
-  const cloneSuccess = await runCommand(`git clone ${GIT_URL} .`, outDirPath, "Cloning Repository");
+  const cloneSuccess = await runCommand(`git clone ${GIT_REPOSITORY__URL} .`, outDirPath, "Cloning Repository");
   if (!cloneSuccess) {
     await kafkaService.publishStatus("FAILED");
     await shutdown(1);

@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import logger from "../logger/winston.logger";
+import * as envs from "../envs";
 
 class DockerService {
   /**
@@ -13,23 +14,23 @@ class DockerService {
   }) {
     const { gitURL, projectId, deploymentId, projectName } = params;
 
-    const envVars = [
-      "AWS_REGION",
-      "AWS_ACCESS_KEY_ID",
-      "AWS_SECRET_ACCESS_KEY",
-      "KAFKA_BROKER",
-      "KAFKA_USERNAME",
-      "KAFKA_PASSWORD",
-      "KAFKA_CA_CERT",
-      "S3_BUCKET_NAME"
-    ];
+    const envVars: Record<string, string | undefined> = {
+      AWS_REGION: envs.AWS_REGION,
+      AWS_ACCESS_KEY_ID: envs.AWS_ACCESS_KEY_ID,
+      AWS_SECRET_ACCESS_KEY: envs.AWS_SECRET_ACCESS_KEY,
+      KAFKA_BROKER: envs.KAFKA_BROKER,
+      KAFKA_USERNAME: envs.KAFKA_USERNAME,
+      KAFKA_PASSWORD: envs.KAFKA_PASSWORD,
+      KAFKA_CA_CERT: envs.KAFKA_CA_CERT,
+      S3_BUCKET_NAME: envs.S3_BUCKET_NAME
+    };
 
     const args = ["run", "--rm"];
 
-    // Add environment variables from process.env
-    envVars.forEach((key) => {
-      if (process.env[key]) {
-        args.push("-e", `${key}=${process.env[key]}`);
+    // Add environment variables from envs
+    Object.entries(envVars).forEach(([key, value]) => {
+      if (value) {
+        args.push("-e", `${key}=${value}`);
       }
     });
 

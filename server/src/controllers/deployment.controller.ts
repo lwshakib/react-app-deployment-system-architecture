@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { sqsService } from "../services/sqs.services";
+import { S3_REVERSE_PROXY_URL } from "../envs";
 import { postgresService } from "../services/postgres.services";
 import { eventBus } from "../services/event-bus.services";
 import { s3Service } from "../services/s3.services";
@@ -26,7 +27,7 @@ export const getDeployments = asyncHandler(async (req: Request, res: Response) =
   query += ` ORDER BY d.created_at DESC`;
 
   const result = await postgresService.query(query, params);
-  const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
+  const proxyUrl = S3_REVERSE_PROXY_URL;
   
   const data = result.rows.map((row: any) => ({
     id: row.id,
@@ -54,7 +55,7 @@ export const getDeploymentById = asyncHandler(async (req: Request, res: Response
   }
 
   const row = result.rows[0];
-  const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
+  const proxyUrl = S3_REVERSE_PROXY_URL;
   const data = {
     id: row.id,
     repo: row.repo,
@@ -195,7 +196,7 @@ export const dashboardStream = (req: Request, res: Response) => {
         ORDER BY d.created_at DESC
       `;
       const result = await postgresService.query(query);
-      const proxyUrl = process.env.S3_REVERSE_PROXY_URL || "http://localhost:8080";
+      const proxyUrl = S3_REVERSE_PROXY_URL;
       const data = result.rows.map((row: any) => ({
         id: row.id,
         projectId: row.project_id,

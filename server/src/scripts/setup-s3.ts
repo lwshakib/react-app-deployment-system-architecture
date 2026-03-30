@@ -1,8 +1,9 @@
 import { s3Service } from "../services/s3.services";
 import logger from "../logger/winston.logger";
+import { AWS_REGION, S3_BUCKET_NAME } from "../envs";
 
-const region = process.env.AWS_REGION;
-const bucketName = process.env.S3_BUCKET_NAME;
+const region = AWS_REGION;
+const bucketName = S3_BUCKET_NAME;
 
 if (!region || !bucketName) {
   logger.error("❌ Missing AWS environment variables (AWS_REGION, S3_BUCKET_NAME).");

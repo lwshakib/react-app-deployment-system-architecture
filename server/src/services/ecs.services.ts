@@ -1,34 +1,29 @@
 import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
 import logger from "../logger/winston.logger";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, ECS_CLUSTER_ARN, ECS_CONTAINER_NAME, ECS_SECURITY_GROUPS, ECS_SUBNETS, ECS_TASK_DEFINITION_ARN, KAFKA_BROKER, KAFKA_CA_CERT, KAFKA_PASSWORD, KAFKA_USERNAME, S3_BUCKET_NAME } from "../envs";
 
 class ECSService {
   private client: ECSClient;
+  private region: string;
+  private accessKeyId: string;
+  private secretAccessKey: string;
+  private containerName: string;
+  private clusterArn: string;
+  private taskDefinitionArn: string;
 
   constructor() {
-    const region = process.env.AWS_REGION;
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-
-    const containerName = process.env.ECS_CONTAINER_NAME;
-    const clusterArn = process.env.ECS_CLUSTER_ARN;
-    const taskDefinitionArn = process.env.ECS_TASK_DEFINITION_ARN;
-
-    if (!region || !accessKeyId || !secretAccessKey || !containerName || !clusterArn || !taskDefinitionArn) {
-      throw new Error(`❌ Missing AWS/ECS Configuration: ${[
-        !region && "AWS_REGION",
-        !accessKeyId && "AWS_ACCESS_KEY_ID",
-        !secretAccessKey && "AWS_SECRET_ACCESS_KEY",
-        !containerName && "ECS_CONTAINER_NAME",
-        !clusterArn && "ECS_CLUSTER_ARN",
-        !taskDefinitionArn && "ECS_TASK_DEFINITION_ARN"
-      ].filter(Boolean).join(", ")}`);
-    }
+    this.region = AWS_REGION;
+    this.accessKeyId = AWS_ACCESS_KEY_ID;
+    this.secretAccessKey = AWS_SECRET_ACCESS_KEY;
+    this.containerName = ECS_CONTAINER_NAME;
+    this.clusterArn = ECS_CLUSTER_ARN;
+    this.taskDefinitionArn = ECS_TASK_DEFINITION_ARN;
 
     this.client = new ECSClient({
-      region,
+      region: this.region,
       credentials: {
-        accessKeyId,
-        secretAccessKey,
+        accessKeyId: this.accessKeyId,
+        secretAccessKey: this.secretAccessKey,
       },
     });
   }
@@ -45,35 +40,35 @@ class ECSService {
     const { gitURL, projectId, deploymentId, projectName } = params;
 
     const command = new RunTaskCommand({
-      cluster: process.env.ECS_CLUSTER_ARN,
-      taskDefinition: process.env.ECS_TASK_DEFINITION_ARN,
+      cluster: ECS_CLUSTER_ARN,
+      taskDefinition: ECS_TASK_DEFINITION_ARN,
       launchType: "FARGATE",
       count: 1,
       networkConfiguration: {
         awsvpcConfiguration: {
           assignPublicIp: "ENABLED",
-          subnets: process.env.ECS_SUBNETS!.split(","),
-          securityGroups: process.env.ECS_SECURITY_GROUPS!.split(","),
+          subnets: ECS_SUBNETS.split(","),
+          securityGroups: ECS_SECURITY_GROUPS.split(","),
         },
       },
       overrides: {
         containerOverrides: [
           {
-            name: process.env.ECS_CONTAINER_NAME!,
+            name: ECS_CONTAINER_NAME,
             environment: [
               { name: "GIT_REPOSITORY__URL", value: gitURL },
               { name: "PROJECT_ID", value: projectId },
               { name: "DEPLOYMENT_ID", value: deploymentId },
               { name: "PROJECT_NAME", value: projectName },
               // Sync Infrastructure Config
-              { name: "AWS_REGION", value: process.env.AWS_REGION! },
-              { name: "AWS_ACCESS_KEY_ID", value: process.env.AWS_ACCESS_KEY_ID! },
-              { name: "AWS_SECRET_ACCESS_KEY", value: process.env.AWS_SECRET_ACCESS_KEY! },
-              { name: "KAFKA_BROKER", value: process.env.KAFKA_BROKER! },
-              { name: "KAFKA_USERNAME", value: process.env.KAFKA_USERNAME! },
-              { name: "KAFKA_PASSWORD", value: process.env.KAFKA_PASSWORD! },
-              { name: "KAFKA_CA_CERT", value: process.env.KAFKA_CA_CERT || "" },
-              { name: "S3_BUCKET_NAME", value: process.env.S3_BUCKET_NAME! },
+              { name: "AWS_REGION", value: AWS_REGION },
+              { name: "AWS_ACCESS_KEY_ID", value: AWS_ACCESS_KEY_ID },
+              { name: "AWS_SECRET_ACCESS_KEY", value: AWS_SECRET_ACCESS_KEY },
+              { name: "KAFKA_BROKER", value: KAFKA_BROKER },
+              { name: "KAFKA_USERNAME", value: KAFKA_USERNAME },
+              { name: "KAFKA_PASSWORD", value: KAFKA_PASSWORD },
+              { name: "KAFKA_CA_CERT", value: KAFKA_CA_CERT || "" },
+              { name: "S3_BUCKET_NAME", value: S3_BUCKET_NAME },
             ],
           },
         ],

@@ -1,5 +1,6 @@
 import morgan, { type StreamOptions } from "morgan";
 import logger from "./winston.logger";
+import { NODE_ENV } from "../envs";
 
 // Winston-compatible stream for Morgan
 const stream: StreamOptions = {
@@ -10,7 +11,7 @@ const stream: StreamOptions = {
 };
 
 const skip = (): boolean => {
-  const env = process.env.NODE_ENV ?? "development";
+  const env = NODE_ENV;
   return env !== "development";
 };
 

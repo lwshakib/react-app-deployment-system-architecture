@@ -1,4 +1,5 @@
 import winston from "winston";
+import { NODE_ENV } from "../envs.js";
 
 const levels = {
   error: 0,
@@ -11,7 +12,7 @@ const levels = {
 type LogLevel = keyof typeof levels;
 
 const level = (): LogLevel => {
-  const env = process.env.NODE_ENV ?? "development";
+  const env = NODE_ENV ?? "development";
   return env === "development" ? "debug" : "warn";
 };
 

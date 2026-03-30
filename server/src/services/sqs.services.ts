@@ -4,16 +4,17 @@ import { dockerService } from "./docker.services";
 import { postgresService } from "./postgres.services";
 import { eventBus } from "./event-bus.services";
 import logger from "../logger/winston.logger";
+import { AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SQS_QUEUE_URL, NODE_ENV } from "../envs";
 
 class SQSService {
   private client: SQSClient;
   private queueUrl: string;
 
   constructor() {
-    const region = process.env.AWS_REGION;
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-    const queueUrl = process.env.AWS_SQS_QUEUE_URL;
+    const region = AWS_REGION;
+    const accessKeyId = AWS_ACCESS_KEY_ID;
+    const secretAccessKey = AWS_SECRET_ACCESS_KEY;
+    const queueUrl = AWS_SQS_QUEUE_URL;
 
     if (!region || !accessKeyId || !secretAccessKey || !queueUrl) {
       throw new Error("❌ AWS/SQS environment variables (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SQS_QUEUE_URL) are missing. SQS service cannot be initialized.");
@@ -64,7 +65,7 @@ class SQSService {
               const payload = JSON.parse(message.Body);
               logger.info(`📥 Received deployment request from SQS: ${payload.deploymentId}`);
 
-              const isDev = process.env.NODE_ENV === "development";
+              const isDev = NODE_ENV === "development";
               
               const taskParams = {
                 gitURL: payload.gitURL,

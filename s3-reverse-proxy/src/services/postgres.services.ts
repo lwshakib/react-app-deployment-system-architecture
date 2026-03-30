@@ -1,12 +1,13 @@
 import { Pool, PoolConfig } from 'pg';
 import logger from "../logger/winston.logger.js";
+import { DATABASE_URL, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, POSTGRES_CA_CERT } from '../envs.js';
 
 class PostgresService {
   private pool: Pool;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL;
-    const caCert = process.env.POSTGRES_CA_CERT;
+    const connectionString = DATABASE_URL;
+    const caCert = POSTGRES_CA_CERT;
 
     const config: PoolConfig = {
       connectionString,
@@ -21,11 +22,11 @@ class PostgresService {
     }
 
     if (!connectionString) {
-      const user = process.env.DB_USER;
-      const host = process.env.DB_HOST;
-      const database = process.env.DB_NAME;
-      const password = process.env.DB_PASSWORD;
-      const portStr = process.env.DB_PORT;
+      const user = DB_USER;
+      const host = DB_HOST;
+      const database = DB_NAME;
+      const password = DB_PASSWORD;
+      const portStr = DB_PORT;
 
       if (!user || !host || !database || !password || !portStr) {
         throw new Error("❌ PostgreSQL environment variables (DB_USER, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT) are missing and no DATABASE_URL was provided.");

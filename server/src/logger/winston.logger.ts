@@ -1,4 +1,5 @@
 import winston from "winston";
+import { NODE_ENV } from "../envs";
 
 // Define custom severity levels
 const levels = {
@@ -13,7 +14,7 @@ type LogLevel = keyof typeof levels;
 
 // Select log level based on environment
 const level = (): LogLevel => {
-  const env = process.env.NODE_ENV ?? "development";
+  const env = NODE_ENV;
   const isDevelopment = env === "development";
   return isDevelopment ? "debug" : "warn";
 };

@@ -1,13 +1,19 @@
-import { ECSClient, DeleteClusterCommand, DeregisterTaskDefinitionCommand, ListTaskDefinitionsCommand } from "@aws-sdk/client-ecs";
-import { ECRClient, DeleteRepositoryCommand, DescribeRepositoriesCommand } from "@aws-sdk/client-ecr";
+import { ECSClient, DeleteClusterCommand, DeregisterTaskDefinitionCommand, ListTaskDefinitionsCommand, ListTasksCommand, StopTaskCommand } from "@aws-sdk/client-ecs";
+import { ECRClient, DeleteRepositoryCommand } from "@aws-sdk/client-ecr";
 import { IAMClient, DeleteRoleCommand, DetachRolePolicyCommand, ListAttachedRolePoliciesCommand } from "@aws-sdk/client-iam";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY } from "../envs";
 import fs from "fs";
 import path from "path";
 import logger from "../logger/winston.logger";
 
-const region = process.env.AWS_REGION || "ap-south-1";
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID!;
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY!;
+const region = AWS_REGION;
+const accessKeyId = AWS_ACCESS_KEY_ID;
+const secretAccessKey = AWS_SECRET_ACCESS_KEY;
+
+if (!region || !accessKeyId || !secretAccessKey) {
+  logger.error("❌ Missing AWS environment variables (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).");
+  process.exit(1);
+}
 
 const credentials = { accessKeyId, secretAccessKey };
 const ecsClient = new ECSClient({ region, credentials });

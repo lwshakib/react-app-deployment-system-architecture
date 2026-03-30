@@ -1,18 +1,19 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import mime from "mime-types";
 import fs from "fs";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME } from "../envs";
 
 class S3Service {
   private client: S3Client;
   private bucketName: string;
 
   constructor() {
-    this.bucketName = process.env.S3_BUCKET_NAME!;
+    this.bucketName = S3_BUCKET_NAME;
     this.client = new S3Client({
-      region: process.env.AWS_REGION!,
+      region: AWS_REGION,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId: AWS_ACCESS_KEY_ID,
+        secretAccessKey: AWS_SECRET_ACCESS_KEY,
       },
     });
   }

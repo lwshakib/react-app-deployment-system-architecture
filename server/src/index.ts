@@ -6,9 +6,10 @@ import router from "./routes";
 import morganMiddleware from "./logger/morgan.logger";
 import { errorHandler } from "./middlewares/error.middlewares";
 import logger from "./logger/winston.logger";
+import { PORT } from "./envs";
 
 const app = express();
-const port = process.env.PORT || 8000;
+const port = PORT;
 
 // Middleware
 app.use(cors());

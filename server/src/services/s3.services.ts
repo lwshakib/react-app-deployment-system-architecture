@@ -7,8 +7,12 @@ import {
   PutPublicAccessBlockCommand, 
   PutBucketPolicyCommand, 
   DeleteBucketCommand,
-  CreateBucketCommandInput
+  CreateBucketCommandInput,
+  PutObjectCommand, 
+  GetObjectCommand 
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME } from "../envs";
 import logger from "../logger/winston.logger";
 
 class S3Service {
@@ -16,12 +20,12 @@ class S3Service {
   private bucketName: string;
 
   constructor() {
-    this.bucketName = process.env.S3_BUCKET_NAME!;
+    this.bucketName = S3_BUCKET_NAME;
     this.client = new S3Client({
-      region: process.env.AWS_REGION!,
+      region: AWS_REGION,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId: AWS_ACCESS_KEY_ID,
+        secretAccessKey: AWS_SECRET_ACCESS_KEY,
       },
     });
   }

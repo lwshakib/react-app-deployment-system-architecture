@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
+    "dotenv": "^17.3.1",
     "kafkajs": "^2.2.4",
     "mime-types": "^2.1.35",
     "winston": "^3.19.0"

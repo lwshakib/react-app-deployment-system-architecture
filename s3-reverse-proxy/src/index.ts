@@ -1,19 +1,13 @@
 import express from 'express';
 import httpProxy from 'http-proxy';
-import dotenv from 'dotenv';
 import { ServerResponse } from 'http';
 import logger from './logger/winston.logger.js';
 import morganMiddleware from './logger/morgan.logger.js';
 import { errorHandler } from './middlewares/error.middlewares.js';
 import { ApiError } from './utils/ApiError.js';
-
-dotenv.config();
+import { AWS_REGION, PORT, S3_BUCKET_NAME } from './envs.js';
 
 const app = express();
-const PORT = process.env.PORT || 9000;
-
-const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME;
-const AWS_REGION = process.env.AWS_REGION || 'ap-south-1';
 
 if (!S3_BUCKET_NAME) {
     logger.error('❌ S3_BUCKET_NAME is not defined in .env');

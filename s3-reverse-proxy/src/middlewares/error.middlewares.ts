@@ -1,16 +1,17 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { ApiError } from "../utils/ApiError";
 import logger from "../logger/winston.logger";
+import { NODE_ENV } from "../envs.js";
 
 /**
  * @description Centralized Error Handler Middleware
  */
-const errorHandler = (
+export const errorHandler: ErrorRequestHandler = (
   err: any,
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   let error = err;
 
   if (!(error instanceof ApiError)) {
@@ -20,16 +21,14 @@ const errorHandler = (
   }
 
   const response = {
-    ...error,
+    success: false,
     message: error.message,
-    ...(process.env.NODE_ENV === "development" ? { stack: error.stack } : {}),
+    ...(NODE_ENV === "development" ? { stack: error.stack } : {}),
   };
 
   logger.error(
     `${req.method} ${req.url} - ${error.statusCode} - ${error.message}`
   );
 
-  return res.status(error.statusCode).json(response);
+  res.status(error.statusCode).json(response);
 };
-
-export { errorHandler };

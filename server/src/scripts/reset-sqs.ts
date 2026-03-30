@@ -1,17 +1,23 @@
 import { SQSClient, DeleteQueueCommand, GetQueueUrlCommand } from "@aws-sdk/client-sqs";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, AWS_SQS_QUEUE_URL } from "../envs";
 import fs from "fs";
 import path from "path";
 import logger from "../logger/winston.logger";
 
-const region = process.env.AWS_REGION;
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+const region = AWS_REGION;
+const accessKeyId = AWS_ACCESS_KEY_ID;
+const secretAccessKey = AWS_SECRET_ACCESS_KEY;
+const queueUrl = AWS_SQS_QUEUE_URL;
+
+if (!region || !accessKeyId || !secretAccessKey || !queueUrl) {
+  throw new Error("❌ SQS Environment variables are missing.");
+}
 
 const sqsClient = new SQSClient({
-  region: region!,
+  region: region,
   credentials: {
-    accessKeyId: accessKeyId!,
-    secretAccessKey: secretAccessKey!,
+    accessKeyId: accessKeyId,
+    secretAccessKey: secretAccessKey,
   },
 });
 

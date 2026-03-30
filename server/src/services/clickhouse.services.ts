@@ -1,24 +1,16 @@
-import { createClient, ClickHouseClient } from "@clickhouse/client";
+import { createClient, type ClickHouseClient } from "@clickhouse/client";
 import logger from "../logger/winston.logger";
+import { CLICKHOUSE_DB, CLICKHOUSE_PASSWORD, CLICKHOUSE_URL, CLICKHOUSE_USER } from "../envs";
 
 class ClickHouseService {
   private client: ClickHouseClient;
 
   constructor() {
-    const url = process.env.CLICKHOUSE_URL;
-    const username = process.env.CLICKHOUSE_USER;
-    const password = process.env.CLICKHOUSE_PASSWORD;
-    const database = process.env.CLICKHOUSE_DB;
-
-    if (!url || !username || !database) {
-      throw new Error("❌ ClickHouse environment variables (CLICKHOUSE_URL, CLICKHOUSE_USER, CLICKHOUSE_DB) are missing.");
-    }
-
     this.client = createClient({
-      url,
-      username,
-      password: password || undefined,
-      database,
+      url: CLICKHOUSE_URL,
+      username: CLICKHOUSE_USER,
+      password: CLICKHOUSE_PASSWORD,
+      database: CLICKHOUSE_DB,
     });
   }
 

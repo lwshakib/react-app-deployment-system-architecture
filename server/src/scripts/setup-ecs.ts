@@ -1,4 +1,5 @@
 import { ECSClient, CreateClusterCommand, RegisterTaskDefinitionCommand } from "@aws-sdk/client-ecs";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, KAFKA_BROKER, KAFKA_CA_CERT, KAFKA_PASSWORD, KAFKA_USERNAME, S3_BUCKET_NAME } from "../envs";
 import { CloudWatchLogsClient, CreateLogGroupCommand, DescribeLogGroupsCommand, PutRetentionPolicyCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { ECRClient, CreateRepositoryCommand, DescribeRepositoriesCommand, GetAuthorizationTokenCommand } from "@aws-sdk/client-ecr";
 import { IAMClient, CreateRoleCommand, AttachRolePolicyCommand, GetRoleCommand } from "@aws-sdk/client-iam";
@@ -8,9 +9,9 @@ import path from "path";
 import { execSync } from "child_process";
 import logger from "../logger/winston.logger";
 
-const region = process.env.AWS_REGION || "ap-south-1";
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+const region = AWS_REGION;
+const accessKeyId = AWS_ACCESS_KEY_ID;
+const secretAccessKey = AWS_SECRET_ACCESS_KEY;
 
 if (!region || !accessKeyId || !secretAccessKey) {
   logger.error("❌ Missing AWS environment variables (AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).");
@@ -177,6 +178,16 @@ async function setupECS() {
                 name: CONTAINER_NAME,
                 image: containerImageUri,
                 essential: true,
+                environment: [
+                  { name: "AWS_REGION", value: AWS_REGION },
+                  { name: "AWS_ACCESS_KEY_ID", value: AWS_ACCESS_KEY_ID },
+                  { name: "AWS_SECRET_ACCESS_KEY", value: AWS_SECRET_ACCESS_KEY },
+                  { name: "KAFKA_BROKER", value: KAFKA_BROKER },
+                  { name: "KAFKA_USERNAME", value: KAFKA_USERNAME },
+                  { name: "KAFKA_PASSWORD", value: KAFKA_PASSWORD },
+                  { name: "KAFKA_CA_CERT", value: KAFKA_CA_CERT || "" },
+                  { name: "S3_BUCKET_NAME", value: S3_BUCKET_NAME },
+                ],
                 logConfiguration: {
                     logDriver: "awslogs",
                     options: {
