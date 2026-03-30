@@ -19,7 +19,7 @@ import { errorHandler } from './middlewares/error.middlewares.js';
 import { ApiError } from './utils/ApiError.js';
 
 // Environment configuration
-import { AWS_REGION, PORT, S3_BUCKET_NAME } from './envs.js';
+import { AWS_REGION, PORT, S3_BUCKET_NAME } from './envs';
 
 const app = express();
 
