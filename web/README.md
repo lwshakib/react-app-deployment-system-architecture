@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Deployment Dashboard 📊
 
-## Getting Started
+The specialized Next.js frontend for managing and monitoring the Instant React Deploy system. It provides a real-time, interactive interface for your developers.
 
-First, run the development server:
+## 🏗️ Core Interaction
 
+The Deployment Dashboard provides a seamless, Vercel-like developer experience:
+1.  **Project Management**: Create projects by simply pasting a GitHub URL.
+2.  **Live Monitoring**: Watch the build progress in a real-time console with line-by-line logs streaming via SSE.
+3.  **Deployment History**: View all previous versions, their build status, and their assigned domains.
+4.  **Instant Preview**: Direct links to the deployed applications via the S3 Reverse Proxy.
+
+## 🛠️ Stack
+
+-   **Next.js** (App Router)
+-   **Tailwind CSS** (Styling)
+-   **Radix UI** (Accessible components)
+-   **Lucide React** (Icons)
+-   **Server-Sent Events (SSE)** (Real-time data streaming)
+
+## 📡 Deployment State Overview
+
+| Status | Description |
+| :--- | :--- |
+| **QUEUED** | The task has been pushed to SQS, waiting for an ECS worker. |
+| **BUILDING** | A build container has picked up the task and is currently compiling. |
+| **READY** | Build completed successfully, artifacts uploaded to S3. |
+| **FAILED** | Build or upload error occurred. Consult logs. |
+
+## 🚀 Running Locally
+
+### Development
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Build & Run
+```bash
+npm run build
+npm start
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📝 Integration Notes
+The dashboard connects to the orchestrator via the `NEXT_PUBLIC_API_BASE_URL` environment variable.
