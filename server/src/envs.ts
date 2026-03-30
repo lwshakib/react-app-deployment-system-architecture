@@ -53,11 +53,11 @@ export const DATABASE_URL = getEnv("DATABASE_URL");
 // Optional SSL certificate for secure DB connections
 export const POSTGRES_CA_CERT = getEnv("POSTGRES_CA_CERT");
 // Option 2: Individual connection parameters
-export const DB_USER = getEnv("DB_USER");
-export const DB_HOST = getEnv("DB_HOST");
-export const DB_NAME = getEnv("DB_NAME");
-export const DB_PASSWORD = getEnv("DB_PASSWORD");
-export const DB_PORT = getEnv("DB_PORT");
+export const DB_USER = getEnv("DB_USER", false);
+export const DB_HOST = getEnv("DB_HOST", false);
+export const DB_NAME = getEnv("DB_NAME", false);
+export const DB_PASSWORD = getEnv("DB_PASSWORD", false);
+export const DB_PORT = getEnv("DB_PORT", false);
 
 // --- KAFKA (LOG STREAMING) CONFIGURATION ---
 // Kafka broker address(es)
