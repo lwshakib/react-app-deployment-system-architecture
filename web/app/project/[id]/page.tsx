@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 // UI Components and Icons
@@ -15,31 +15,16 @@ import {
   ChevronLeft, 
   ChevronRight, 
   ExternalLink, 
-  Terminal, 
-  AlertCircle, 
   Loader2, 
-  Globe, 
   Rocket, 
-  History, 
-  Clock, 
   CheckCircle2, 
   XCircle, 
-  ShieldCheck, 
   GitBranch, 
-  GitCommit, 
-  Plus, 
-  User 
+  GitCommit
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 
-// Specialized UI components from the local shadcn/ui library
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from "@/components/ui/accordion";
 
 import { 
   Tabs, 
@@ -58,11 +43,20 @@ interface Deployment {
   created_at: string;
 }
 
-// Define the shape of a file metadata object from S3
-interface S3File {
-  key: string;
-  size: number;
-  lastModified: string;
+
+// Define the shape of a project from Postgres
+interface Project {
+  id: string;
+  name: string;
+  git_url: string;
+  sub_domain: string;
+  created_at: string;
+}
+
+// Define the shape of a log entry from ClickHouse
+interface LogEntry {
+  log: string;
+  timestamp?: string;
 }
 
 // Resolve the Backend API URL from environment variables
@@ -74,10 +68,9 @@ export default function ProjectDetails() {
   const router = useRouter();
   
   // --- STATE MANAGEMENT ---
-  const [project, setProject] = useState<any>(null); // Project metadata (name, git_url, sub_domain)
+  const [project, setProject] = useState<Project | null>(null); // Project metadata (name, git_url, sub_domain)
   const [deployments, setDeployments] = useState<Deployment[]>([]); // History of deployments
   const [logs, setLogs] = useState<string[]>([]); // Snapshot of logs for the latest build
-  const [files, setFiles] = useState<S3File[]>([]); // S3 artifacts for the latest build
   const [loading, setLoading] = useState(true); // Page-level loading state
   const [activeTab, setActiveTab] = useState("overview"); // Navigation state (Overview vs History)
   
@@ -89,7 +82,7 @@ export default function ProjectDetails() {
   /**
    * Fetches the core project metadata and its entire deployment history.
    */
-  const fetchProjectData = async () => {
+  const fetchProjectData = useCallback(async () => {
     try {
       // 1. Fetch Project Metadata
       const projectRes = await fetch(`${API_BASE_URL}/deployments/projects/${projectId}`);
@@ -109,36 +102,30 @@ export default function ProjectDetails() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   /**
    * Fetches logs and artifacts for a specific deployment.
    * Usually called for the 'latest' deployment to populate the overview page.
    */
-  const fetchLatestLogsAndFiles = async (deploymentId: string) => {
+  const fetchLatestLogsAndFiles = useCallback(async (deploymentId: string) => {
     try {
       const logRes = await fetch(`${API_BASE_URL}/logs/${deploymentId}`);
       if (logRes.ok) {
         const data = await logRes.json();
-        setLogs(data.data.logs.map((l: any) => l.log));
-      }
-
-      const filesRes = await fetch(`${API_BASE_URL}/deployments/${deploymentId}/files`);
-      if (filesRes.ok) {
-        const data = await filesRes.json();
-        setFiles(data.data.files);
+        setLogs(data.data.logs.map((l: LogEntry) => l.log));
       }
     } catch (err) {
-      console.error("Error fetching logs/files:", err);
+      console.error("Error fetching logs:", err);
     }
-  };
+  }, []);
 
   /**
    * Lifecycle Hook: Initial data load.
    */
   useEffect(() => {
     fetchProjectData();
-  }, [projectId]);
+  }, [projectId, fetchProjectData]);
 
   // Derived data for display
   const latestDeployment = deployments[0];
@@ -154,7 +141,7 @@ export default function ProjectDetails() {
     if (latest && (latest.status === "building" || latest.status === "ready" || latest.status === "failed")) {
       fetchLatestLogsAndFiles(latest.id);
     }
-  }, [deployments]);
+  }, [deployments, fetchLatestLogsAndFiles]);
 
   /**
    * Keep logs scrolled to bottom.
@@ -199,9 +186,9 @@ export default function ProjectDetails() {
         const newDeployment: Deployment = {
           id: raw.id,
           projectId: raw.project_id,
-          repo: project.name,
-          url: project.git_url,
-          status: raw.status.toLowerCase() as any,
+          repo: project?.name || "",
+          url: project?.git_url || "",
+          status: raw.status.toLowerCase() as Deployment["status"],
           created_at: raw.created_at
         };
 

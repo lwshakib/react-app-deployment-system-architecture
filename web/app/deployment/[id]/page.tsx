@@ -7,22 +7,18 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 // UI Components and Icons
 import { 
-  ChevronLeft, 
+  ChevronLeft,
   ExternalLink, 
   Terminal, 
   ShieldCheck, 
   AlertCircle, 
   Loader2, 
-  Globe, 
-  History, 
-  Clock, 
-  CheckCircle2, 
-  XCircle 
+  Globe
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -53,6 +49,12 @@ interface S3File {
   lastModified: string;
 }
 
+// Define the shape of a log entry from ClickHouse
+interface LogEntry {
+  log: string;
+  timestamp?: string;
+}
+
 // Resolve the Backend API URL from environment variables
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
@@ -75,7 +77,7 @@ export default function DeploymentDetails() {
    * Fetches the initial snapshot of deployment metadata, historical logs, 
    * and build artifacts.
    */
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // 1. Fetch Deployment Metadata (Postgres)
       const res = await fetch(`${API_BASE_URL}/deployments/${deploymentId}`);
@@ -88,7 +90,7 @@ export default function DeploymentDetails() {
       const logRes = await fetch(`${API_BASE_URL}/logs/${deploymentId}`);
       if (logRes.ok) {
         const response = await logRes.json();
-        setLogs(response.data.logs.map((l: any) => l.log));
+        setLogs(response.data.logs.map((l: LogEntry) => l.log));
       }
 
       // 3. Fetch Build Artifacts (S3)
@@ -102,7 +104,7 @@ export default function DeploymentDetails() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [deploymentId]);
 
   /**
    * Lifecycle Hook: 
@@ -119,7 +121,9 @@ export default function DeploymentDetails() {
         const data = JSON.parse(event.data);
         // Append new log line to existing state
         setLogs((prev) => [...prev, data.log]);
-      } catch (err) {}
+      } catch {
+        // Silent error for malformed log lines
+      }
     };
 
     // SSE: Stream global deployment status changes
@@ -128,7 +132,7 @@ export default function DeploymentDetails() {
       try {
         const all = JSON.parse(event.data);
         // Find the specific deployment being viewed
-        const current = all.find((d: any) => d.id === deploymentId);
+        const current = all.find((d: Deployment) => d.id === deploymentId);
         if (current) {
           setDeployment(current);
           // If the status just transitioned to 'ready', refresh the artifact list
@@ -138,7 +142,9 @@ export default function DeploymentDetails() {
               .then(d => setFiles(d.data.files));
           }
         }
-      } catch (err) {}
+      } catch {
+        // Silent error for malformed status update
+      }
     };
 
     // Cleanup: Close EventSource connections on unmount to prevent memory leaks
@@ -146,7 +152,7 @@ export default function DeploymentDetails() {
       logEventSource.close();
       statusEventSource.close();
     };
-  }, [deploymentId]);
+  }, [deploymentId, fetchData]);
 
   /**
    * Automatic Scroll: Keeps the log view at the bottom (most recent lines).
