@@ -6,6 +6,7 @@
 
 import express from "express";
 import cors from "cors";
+import { rateLimit } from "express-rate-limit";
 
 // Import core services for background processing and messaging
 import { kafkaService } from "./services/kafka.services";
@@ -32,6 +33,17 @@ app.use(cors());
 app.use(express.json());
 // Standard HTTP request logging using Morgan + Winston
 app.use(morganMiddleware);
+
+// Rate limiting to prevent brute-force/DDoS-like traffic
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many requests from this IP, please try again after 15 minutes",
+});
+// Apply the rate limiting middleware to all requests starting with /api
+app.use("/api", limiter);
 
 // --- API ROUTING ---
 // All business logic routes are prefixed with /api
