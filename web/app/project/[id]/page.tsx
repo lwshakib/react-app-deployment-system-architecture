@@ -1,11 +1,39 @@
+/**
+ * Project Details Page.
+ * This client-side component provides a high-level overview of a project, 
+ * including its production domain preview, current status, and full 
+ * deployment history.
+ */
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, ExternalLink, Terminal, AlertCircle, Loader2, Globe, Rocket, History, Clock, CheckCircle2, XCircle, ShieldCheck, GitBranch, GitCommit, Plus, User } from "lucide-react";
+
+// UI Components and Icons
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  ExternalLink, 
+  Terminal, 
+  AlertCircle, 
+  Loader2, 
+  Globe, 
+  Rocket, 
+  History, 
+  Clock, 
+  CheckCircle2, 
+  XCircle, 
+  ShieldCheck, 
+  GitBranch, 
+  GitCommit, 
+  Plus, 
+  User 
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 
+// Specialized UI components from the local shadcn/ui library
 import { 
   Accordion, 
   AccordionContent, 
@@ -20,6 +48,7 @@ import {
   TabsTrigger 
 } from "@/components/ui/tabs";
 
+// Define the shape of a deployment object for TypeScript safety
 interface Deployment {
   id: string;
   projectId: string;
@@ -29,29 +58,37 @@ interface Deployment {
   created_at: string;
 }
 
+// Define the shape of a file metadata object from S3
 interface S3File {
   key: string;
   size: number;
   lastModified: string;
 }
 
+// Resolve the Backend API URL from environment variables
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
 export default function ProjectDetails() {
+  // Extract the project UUID from the dynamic route [id]
   const { id: projectId } = useParams();
   const router = useRouter();
   
-  const [project, setProject] = useState<any>(null);
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [logs, setLogs] = useState<string[]>([]);
-  const [files, setFiles] = useState<S3File[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  // --- STATE MANAGEMENT ---
+  const [project, setProject] = useState<any>(null); // Project metadata (name, git_url, sub_domain)
+  const [deployments, setDeployments] = useState<Deployment[]>([]); // History of deployments
+  const [logs, setLogs] = useState<string[]>([]); // Snapshot of logs for the latest build
+  const [files, setFiles] = useState<S3File[]>([]); // S3 artifacts for the latest build
+  const [loading, setLoading] = useState(true); // Page-level loading state
+  const [activeTab, setActiveTab] = useState("overview"); // Navigation state (Overview vs History)
   
+  // Refs for UI interactions
   const logEndRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
-  const [previewScale, setPreviewScale] = useState(1);
+  const [previewScale, setPreviewScale] = useState(1); // Auto-scale the iframe preview
 
+  /**
+   * Fetches the core project metadata and its entire deployment history.
+   */
   const fetchProjectData = async () => {
     try {
       // 1. Fetch Project Metadata
@@ -61,7 +98,7 @@ export default function ProjectDetails() {
         setProject(data.data);
       }
 
-      // 2. Fetch All Deployments for Project
+      // 2. Fetch All Deployments for this Project
       const deploymentsRes = await fetch(`${API_BASE_URL}/deployments?projectId=${projectId}`);
       if (deploymentsRes.ok) {
         const data = await deploymentsRes.json();
@@ -74,6 +111,10 @@ export default function ProjectDetails() {
     }
   };
 
+  /**
+   * Fetches logs and artifacts for a specific deployment.
+   * Usually called for the 'latest' deployment to populate the overview page.
+   */
   const fetchLatestLogsAndFiles = async (deploymentId: string) => {
     try {
       const logRes = await fetch(`${API_BASE_URL}/logs/${deploymentId}`);
@@ -92,16 +133,22 @@ export default function ProjectDetails() {
     }
   };
 
+  /**
+   * Lifecycle Hook: Initial data load.
+   */
   useEffect(() => {
     fetchProjectData();
-
-    return () => {};
   }, [projectId]);
 
+  // Derived data for display
   const latestDeployment = deployments[0];
   const latestSuccessful = deployments.find(d => d.status === "ready");
+  // The production URL uses the user-defined subdomain (reverse-proxy handles this)
   const productionUrl = latestSuccessful ? `http://${project?.sub_domain}.localhost:8080` : null;
 
+  /**
+   * Refresh logs whenever the deployment list changes (e.g., after a new build starts).
+   */
   useEffect(() => {
     const latest = deployments[0];
     if (latest && (latest.status === "building" || latest.status === "ready" || latest.status === "failed")) {
@@ -109,11 +156,17 @@ export default function ProjectDetails() {
     }
   }, [deployments]);
 
+  /**
+   * Keep logs scrolled to bottom.
+   */
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
-  // ResizeObserver for Preview Scaling
+  /**
+   * Dynamic Preview Scaling:
+   * Calculates the scale needed to fit a 1280px wide iframe into the current container.
+   */
   useEffect(() => {
     if (!previewContainerRef.current) return;
 
@@ -130,6 +183,9 @@ export default function ProjectDetails() {
     return () => observer.disconnect();
   }, [latestSuccessful]);
 
+  /**
+   * Triggers a new deployment for this project (re-build using same Git URL).
+   */
   const handleDeploy = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/deployments/projects/${projectId}/deployments`, {
@@ -139,7 +195,7 @@ export default function ProjectDetails() {
         const response = await res.json();
         const raw = response.data;
         
-        // Instant Preview: Add the new deployment to the list immediately
+        // Optimistic UI: Immediately add the 'QUEUED' deployment to the list
         const newDeployment: Deployment = {
           id: raw.id,
           projectId: raw.project_id,
@@ -150,12 +206,15 @@ export default function ProjectDetails() {
         };
 
         setDeployments((prev) => [newDeployment, ...prev]);
+        // Switch to history tab to see the progress
+        setActiveTab("deployments");
       }
     } catch (err) {
       console.error("Deployment failed:", err);
     }
   };
 
+  // Global loading state
   if (loading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
       <Loader2 className="size-8 text-zinc-500 animate-spin" />
@@ -166,7 +225,7 @@ export default function ProjectDetails() {
     <div className="min-h-screen bg-zinc-950 text-zinc-50 p-6 sm:p-20 font-sans">
       <div className="max-w-4xl mx-auto space-y-8">
         
-        {/* Header */}
+        {/* --- PAGE HEADER --- */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <Button 
@@ -180,7 +239,11 @@ export default function ProjectDetails() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-zinc-100">{project?.name || "Project Dashboard"}</h1>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-[10px] text-zinc-500 font-mono opacity-70 cursor-copy" onClick={() => navigator.clipboard.writeText(projectId as string)}>
+                <p 
+                  className="text-[10px] text-zinc-500 font-mono opacity-70 cursor-copy active:text-zinc-100 transition-colors" 
+                  onClick={() => navigator.clipboard.writeText(projectId as string)}
+                  title="Click to copy Project ID"
+                >
                   {projectId}
                 </p>
                 <div className="size-1 rounded-full bg-zinc-800" />
@@ -188,20 +251,21 @@ export default function ProjectDetails() {
               </div>
             </div>
           </div>
-          
-          </div>
+        </div>
 
+        {/* --- NAVIGATION TABS --- */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-transparent  p-1 w-fit">
+          <TabsList className="bg-transparent p-1 w-fit">
             <TabsTrigger value="overview" className="h-11 px-8 data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 font-semibold text-[13px]">Overview</TabsTrigger>
             <TabsTrigger value="deployments" className="h-11 px-8 data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 font-semibold text-[13px]">Deployments</TabsTrigger>
           </TabsList>
 
+          {/* OVERVIEW TAB: Vercel-style preview dashboard */}
           <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Vercel-Style Preview & Dashboard */}
             {latestSuccessful ? (
               <div className="grid grid-cols-1 lg:col-span-12 lg:grid-cols-12 gap-10 pt-4">
-                {/* Left: 16:9 Preview Pane */}
+                
+                {/* --- PREVIEW PANE (Iframe) --- */}
                 <div className="lg:col-span-8">
                   <div 
                     ref={previewContainerRef}
@@ -213,13 +277,14 @@ export default function ProjectDetails() {
                         style={{
                           width: "1280px",
                           height: "720px",
+                          // Scaled down to fit the responsive container
                           transform: `scale(${previewScale})`,
                           transformOrigin: "0 0",
                           position: "absolute",
                           top: 0,
                           left: 0,
                           border: "none",
-                          pointerEvents: "none",
+                          pointerEvents: "none", // Avoid accidental clicks in preview
                           opacity: 0.9,
                         }}
                         title="Site Preview"
@@ -229,9 +294,10 @@ export default function ProjectDetails() {
                   </div>
                 </div>
 
-                {/* Right: Minimalist Metadata Dashboard */}
+                {/* --- METADATA DASHBOARD --- */}
                 <div className="lg:col-span-4 space-y-8 h-full flex flex-col py-1">
-                  {/* Deployment section: Latest Successful Build URL */}
+                  
+                  {/* Deployment UUID link */}
                   <div className="space-y-1.5">
                     <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Deployment</span>
                     <p 
@@ -242,7 +308,7 @@ export default function ProjectDetails() {
                     </p>
                   </div>
 
-                  {/* Domains section: Main Subdomain */}
+                  {/* Configured production domain */}
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2">
                       <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Domains</span>
@@ -258,7 +324,7 @@ export default function ProjectDetails() {
                     </div>
                   </div>
 
-                  {/* Status & Created grid */}
+                  {/* Current Status and Timestamp */}
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Status</span>
@@ -284,15 +350,15 @@ export default function ProjectDetails() {
                     </div>
                   </div>
 
-                  {/* Source section */}
+                  {/* Git Source Metadata */}
                   <div className="space-y-2.5">
                     <span className="text-[12px] text-zinc-500 font-medium tracking-tight">Source</span>
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 opacity-80 hover:opacity-100 cursor-pointer transition-opacity">
+                      <div className="flex items-center gap-2 opacity-80">
                         <GitBranch className="size-3.5 text-zinc-500" />
                         <span className="text-[13px] font-semibold text-zinc-200">main</span>
                       </div>
-                      <div className="flex items-center gap-2 opacity-60 hover:opacity-100 cursor-pointer transition-opacity">
+                      <div className="flex items-center gap-2 opacity-60">
                         <GitCommit className="size-3.5 text-zinc-500" />
                         <span className="text-[13px] font-medium text-zinc-400">
                           {latestDeployment?.id.slice(0, 7) || "---"}
@@ -303,6 +369,7 @@ export default function ProjectDetails() {
                 </div>
               </div>
             ) : (
+              // Empty State
               <div className="flex flex-col items-center justify-center py-32 bg-zinc-900/10 border border-zinc-900 rounded-2xl border-dashed opacity-50 space-y-4">
                 <Rocket className="size-10 text-zinc-700" />
                 <p className="text-sm font-medium text-zinc-500">No active deployment found</p>
@@ -310,6 +377,7 @@ export default function ProjectDetails() {
             )}
           </TabsContent>
 
+          {/* HISTORY TAB: List of all past and current deployments */}
           <TabsContent value="deployments" className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-6">
             <div className="flex justify-end">
               <Button 
