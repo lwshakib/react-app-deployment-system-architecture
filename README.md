@@ -36,7 +36,7 @@ This system allows users to deploy React repositories by simply providing a GitH
 
 1.  **Clone the Repository**:
     ```bash
-    git clone https://github.com/your-username/react-app-deployment-system-architecture.git
+    git clone https://github.com/lwshakib/react-app-deployment-system-architecture.git
     cd react-app-deployment-system-architecture
     ```
 

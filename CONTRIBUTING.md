@@ -13,7 +13,17 @@ To contribute to this project, you will need a complete local environment.
 
 ### Steps to Start Developing
 
-1.  **Fork and Clone** the repository.
+1.  **Fork and Clone**:
+    - Click the **Fork** button at the top right of the repository page.
+    - Clone your fork locally:
+      ```bash
+      git clone https://github.com/your-username/react-app-deployment-system-architecture.git
+      cd react-app-deployment-system-architecture
+      ```
+    - Add the original repository as an `upstream` remote to stay in sync:
+      ```bash
+      git remote add upstream https://github.com/lwshakib/react-app-deployment-system-architecture.git
+      ```
 2.  **Run Infrastructure**:
     ```bash
     docker-compose up -d

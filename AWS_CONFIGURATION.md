@@ -2,6 +2,66 @@
 
 This guide outlines the manual and automated steps required to provision the AWS resources for the Instant React Deploy system.
 
+## ⚡ Automated Setup (Recommended)
+
+The project includes a suite of automation scripts in `server/src/scripts` that can automatically provision and configure your AWS resources. This is the fastest and most reliable way to get started.
+
+### Prerequisites for Automation
+- **AWS CLI** configured (`aws configure`).
+- **Docker** running locally (required for ECS image pushing).
+- **Environment Variables**: Ensure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` are set in your `server/.env` file.
+
+### Step 0: Create IAM User & Access Keys
+Before running the scripts, you need an IAM user with the permissions to provision infrastructure.
+
+1.  **Create IAM User**:
+    - Go to the [IAM Console](https://console.aws.amazon.com/iam/).
+    - Click **Users** -> **Create user**.
+    - **User name**: `shakib-deploy-orchestrator` (or your preferred name).
+    - Click **Next**.
+2.  **Set Permissions**:
+    - Select **Attach policies directly**.
+    - Search for and check **AdministratorAccess**.
+    - > [!IMPORTANT]
+      > While `AdministratorAccess` is recommended for the initial automated setup to ensure all roles and resources are created successfully, you can later scope down permissions once the infrastructure is stable.
+    - Click **Next** -> **Create user**.
+3.  **Generate Access Keys**:
+    - Click on your newly created user in the list.
+    - Select the **Security credentials** tab.
+    - Scroll down to **Access keys** and click **Create access key**.
+    - Select **Command Line Interface (CLI)**, check the disclaimer, and click **Next**.
+    - Click **Create access key**.
+    - **Copy** the `Access key ID` and `Secret access key`.
+4.  **Configure Environment**:
+    - Paste these values into your `server/.env` file:
+      ```env
+      AWS_ACCESS_KEY_ID=YOUR_COPIED_KEY_ID
+      AWS_SECRET_ACCESS_KEY=YOUR_COPIED_SECRET_KEY
+      AWS_REGION=ap-south-1
+      ```
+
+### Running the Setup Scripts
+Execute these commands from the `server` directory. The scripts will create the resources and automatically update your `.env` file with the resulting ARNs and URLs.
+
+```bash
+# 1. Provision S3 Bucket & Public Policy
+bun run src/scripts/setup-s3.ts
+
+# 2. Provision SQS Task Queue
+bun run src/scripts/setup-sqs.ts
+
+# 3. Comprehensive ECS Setup (Roles, ECR, Cluster, Task Definition, Networking)
+# Note: This will build and push the local build-container image to AWS ECR.
+bun run src/scripts/setup-ecs.ts
+```
+
+> [!TIP]
+> **Cleanup Scripts**: If you need to teardown your infrastructure, corresponding `reset-*.ts` scripts are available in the same directory. Use them with caution as they will delete AWS resources.
+
+---
+
+## 🛠 Manual Setup
+
 ## 🛠 Prerequisites
 
 -   An active **AWS Account**.
@@ -48,7 +108,7 @@ The built apps may need to fetch assets or make API calls. Add this CORS policy 
 2.  **Infrastructure**: AWS Fargate.
 3.  **Task Size**: 1 vCPU, 2 GB RAM (Adjust based on project complexity).
 4.  **Container Definitions**:
-    - **Image**: `your-docker-username/build-container:latest`.
+    - **Image**: `lwshakib/build-container:latest`.
     - **Environment Variables**:
         - `AWS_ACCESS_KEY_ID`: `...`
         - `AWS_SECRET_ACCESS_KEY`: `...`
