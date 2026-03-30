@@ -1,35 +1,48 @@
+/**
+ * AWS ECS Service.
+ * This service is responsible for triggering build tasks in the cloud.
+ * It uses AWS Fargate to run the build-container image for every new deployment.
+ */
+
 import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
 import logger from "../logger/winston.logger";
-import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, ECS_CLUSTER_ARN, ECS_CONTAINER_NAME, ECS_SECURITY_GROUPS, ECS_SUBNETS, ECS_TASK_DEFINITION_ARN, KAFKA_BROKER, KAFKA_CA_CERT, KAFKA_PASSWORD, KAFKA_USERNAME, S3_BUCKET_NAME } from "../envs";
+import { 
+  AWS_ACCESS_KEY_ID, 
+  AWS_REGION, 
+  AWS_SECRET_ACCESS_KEY, 
+  ECS_CLUSTER_ARN, 
+  ECS_CONTAINER_NAME, 
+  ECS_SECURITY_GROUPS, 
+  ECS_SUBNETS, 
+  ECS_TASK_DEFINITION_ARN, 
+  KAFKA_BROKER, 
+  KAFKA_CA_CERT, 
+  KAFKA_PASSWORD, 
+  KAFKA_USERNAME, 
+  S3_BUCKET_NAME 
+} from "../envs";
 
 class ECSService {
+  // Shared AWS ECS Client
   private client: ECSClient;
-  private region: string;
-  private accessKeyId: string;
-  private secretAccessKey: string;
-  private containerName: string;
-  private clusterArn: string;
-  private taskDefinitionArn: string;
 
+  /**
+   * Initializes the ECS client with infrastructure credentials.
+   */
   constructor() {
-    this.region = AWS_REGION;
-    this.accessKeyId = AWS_ACCESS_KEY_ID;
-    this.secretAccessKey = AWS_SECRET_ACCESS_KEY;
-    this.containerName = ECS_CONTAINER_NAME;
-    this.clusterArn = ECS_CLUSTER_ARN;
-    this.taskDefinitionArn = ECS_TASK_DEFINITION_ARN;
-
     this.client = new ECSClient({
-      region: this.region,
+      region: AWS_REGION,
       credentials: {
-        accessKeyId: this.accessKeyId,
-        secretAccessKey: this.secretAccessKey,
+        accessKeyId: AWS_ACCESS_KEY_ID,
+        secretAccessKey: AWS_SECRET_ACCESS_KEY,
       },
     });
   }
 
   /**
-   * Run an ECS Fargate task
+   * Triggers a new ECS Fargate task to build a React application.
+   * @param params - Configuration for the specific build task
+   * @returns The ECS response including the Task ARN
    */
   async runTask(params: {
     gitURL: string;
@@ -39,34 +52,39 @@ class ECSService {
   }) {
     const { gitURL, projectId, deploymentId, projectName } = params;
 
+    // Construct the command to run a single Fargate task
     const command = new RunTaskCommand({
       cluster: ECS_CLUSTER_ARN,
       taskDefinition: ECS_TASK_DEFINITION_ARN,
       launchType: "FARGATE",
-      count: 1,
+      count: 1, // Only one container per build
       networkConfiguration: {
         awsvpcConfiguration: {
+          // Required for the container to pull images and reach SQS/Kafka
           assignPublicIp: "ENABLED",
           subnets: ECS_SUBNETS.split(","),
           securityGroups: ECS_SECURITY_GROUPS.split(","),
         },
       },
+      // Environment variable overrides to pass the build context into the container
       overrides: {
         containerOverrides: [
           {
             name: ECS_CONTAINER_NAME,
             environment: [
+              // Deployment Context
               { name: "GIT_REPOSITORY__URL", value: gitURL },
               { name: "PROJECT_ID", value: projectId },
               { name: "DEPLOYMENT_ID", value: deploymentId },
               { name: "PROJECT_NAME", value: projectName },
-              // Sync Infrastructure Config
+              // Global Infrastructure Credentials & Endpoints
               { name: "AWS_REGION", value: AWS_REGION },
               { name: "AWS_ACCESS_KEY_ID", value: AWS_ACCESS_KEY_ID },
               { name: "AWS_SECRET_ACCESS_KEY", value: AWS_SECRET_ACCESS_KEY },
               { name: "KAFKA_BROKER", value: KAFKA_BROKER },
               { name: "KAFKA_USERNAME", value: KAFKA_USERNAME },
               { name: "KAFKA_PASSWORD", value: KAFKA_PASSWORD },
+              // Optional CA Cert as a string (passed if present)
               { name: "KAFKA_CA_CERT", value: KAFKA_CA_CERT || "" },
               { name: "S3_BUCKET_NAME", value: S3_BUCKET_NAME },
             ],
@@ -76,6 +94,7 @@ class ECSService {
     });
 
     try {
+      // Execute the command via the AWS SDK
       const response = await this.client.send(command);
       logger.info(`🚀 ECS Task triggered: ${response.tasks?.[0]?.taskArn}`);
       return response;
@@ -86,6 +105,6 @@ class ECSService {
   }
 }
 
-// Export a singleton instance
+// Export a singleton instance of the ECS service
 export const ecsService = new ECSService();
 export default ecsService;

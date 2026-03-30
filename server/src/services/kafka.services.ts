@@ -1,3 +1,9 @@
+/**
+ * Kafka Messaging Service.
+ * This service handles all interactions with the Kafka cluster, including 
+ * producing messages, consuming real-time build logs, and updating deployment statuses.
+ */
+
 import { Kafka, Producer, Consumer, Admin } from "kafkajs";
 import { v4 as uuidv4 } from "uuid";
 import logger from "../logger/winston.logger";
@@ -12,6 +18,9 @@ class KafkaService {
   private consumers: Consumer[] = [];
   private admin: Admin | null = null;
 
+  /**
+   * Initializes the Kafka client with security configurations (SASL/SSL).
+   */
   constructor() {
     const broker = KAFKA_BROKER;
     const username = KAFKA_USERNAME;
@@ -19,18 +28,18 @@ class KafkaService {
     const clientId = KAFKA_CLIENT_ID;
     const caCert = KAFKA_CA_CERT;
 
+    // Ensure all critical infrastructure credentials are provided
     if (!broker || !username || !password || !clientId) {
-      throw new Error("❌ Kafka environment variables (KAFKA_BROKER, KAFKA_USERNAME, KAFKA_PASSWORD, KAFKA_CLIENT_ID) are missing. Infrastructure cannot be initialized.");
+      throw new Error("❌ Kafka environment variables are missing. Infrastructure cannot be initialized.");
     }
 
     this.kafka = new Kafka({
       clientId,
       brokers: [broker],
-      ssl: caCert ? {
-        ca: [caCert],
-      } : undefined,
+      // Inject SSL CA Certificate if provided as a raw string (for cloud deployments)
+      ssl: caCert ? { ca: [caCert] } : undefined,
       sasl: {
-        mechanism: "plain",
+        mechanism: "plain", // Standard PLAIN authentication
         username,
         password,
       },
@@ -38,7 +47,7 @@ class KafkaService {
   }
 
   /**
-   * Initialize the admin client
+   * Retrieves or initializes the Kafka Admin client for topic management.
    */
   async getAdmin(): Promise<Admin> {
     if (!this.admin) {
@@ -50,7 +59,8 @@ class KafkaService {
   }
 
   /**
-   * Create a topic if it doesn't exist
+   * Idempotently creates a Kafka topic.
+   * @param topic - The name of the topic to create
    */
   async createTopic(topic: string) {
     try {
@@ -72,7 +82,7 @@ class KafkaService {
   }
 
   /**
-   * Initialize the producer
+   * Retrieves or initializes the Kafka Producer client.
    */
   async getProducer(): Promise<Producer> {
     if (!this.producer) {
@@ -84,7 +94,9 @@ class KafkaService {
   }
 
   /**
-   * Send a message to a topic
+   * Publishes a JSON message to a specific Kafka topic.
+   * @param topic - Target topic
+   * @param message - The object to be stringified and sent
    */
   async sendMessage(topic: string, message: any) {
     try {
@@ -101,7 +113,8 @@ class KafkaService {
   }
 
   /**
-   * Listen to a topic in batches
+   * Helper to start a batch consumer on a topic.
+   * Batch processing is more efficient for high-volume logs.
    */
   async listenBatch(topic: string, groupId: string, onBatch: any) {
     try {
@@ -120,61 +133,72 @@ class KafkaService {
   }
 
   /**
-   * Initialize the log consumer
+   * Log Consumer:
+   * Consumes real-time build logs, emits them to the server's event bus 
+   * (for SSE), and persists them in batches to ClickHouse.
    */
   async initLogConsumer() {
     await this.listenBatch("container-logs", "api-server-logs-consumer", async ({ batch, heartbeat, resolveOffset }: any) => {
       const logEntries = [];
       const validMessages = [];
 
+      // Process each message in the batch
       for (const message of batch.messages) {
         if (!message.value) continue;
         try {
           const data = JSON.parse(message.value.toString());
+          // Prepare for ClickHouse bulk insertion
           logEntries.push({ event_id: uuidv4(), deployment_id: data.DEPLOYMENT_ID, log: data.log });
+          // Notify any connected SSE clients
           eventBus.emit("log-received", data);
           validMessages.push(message);
         } catch (err) {
-          logger.error(`❌ Kafka Log Consumer: Error parsing JSON: ${err} ${message.value.toString()}`);
+          logger.error(`❌ Kafka Log Consumer: Error parsing JSON: ${err}`);
+          // Resolve offset even on error to avoid blocking the partition
           resolveOffset(message.offset);
         }
       }
 
+      // Perform bulk insertion to ClickHouse to maintain high throughput
       if (logEntries.length > 0) {
         try {
           await clickHouseService.insert("log_events", logEntries);
+          // Mark all processed messages as resolved
           for (const message of validMessages) {
             resolveOffset(message.offset);
           }
           logger.info(`📝 Log Consumer: Batched ${logEntries.length} logs to ClickHouse.`);
         } catch (err) {
           logger.error("❌ Kafka Log Consumer: ClickHouse Insertion Failed:", err);
-          throw err;
+          throw err; // Fail the batch to trigger retry if DB is down
         }
       }
+      // Send heartbeat to prevent session timeout
       await heartbeat();
     });
   }
 
   /**
-   * Initialize the status consumer
+   * Status Consumer:
+   * Listens for build completion events (READY/FAILED) and updates the Postgres DB.
    */
   async initStatusConsumer() {
     await this.listenBatch("deployment-status", "api-server-status-consumer", async ({ batch, heartbeat, resolveOffset }: any) => {
       for (const message of batch.messages) {
         if (!message.value) continue;
         try {
-          const payload = message.value.toString();
-          const data = JSON.parse(payload);
+          const data = JSON.parse(message.value.toString());
           const { DEPLOYMENT_ID, status } = data;
           
           if (!status) {
-              logger.warn(`⚠️ Status Consumer: Received message without status for deployment ${DEPLOYMENT_ID}. Skipping DB update.`);
+              logger.warn(`⚠️ Status Consumer: Missing status for deployment ${DEPLOYMENT_ID}`);
               resolveOffset(message.offset);
               continue;
           }
 
+          // Atomically update the deployment status in the main relational DB
           const res = await postgresService.query("UPDATE deployments SET status = $1 WHERE id = $2", [status, DEPLOYMENT_ID]);
+          // Trigger SSE update for the dashboard deployment list
           eventBus.emit("deployment-status-changed");
           
           if (res.rowCount === 0) {
@@ -182,13 +206,14 @@ class KafkaService {
           } else {
             logger.info(`🔔 Status Consumer: Updated deployment ${DEPLOYMENT_ID} to ${status}`);
           }
+          // Mark as processed
           resolveOffset(message.offset);
         } catch (err) {
-          logger.error(`❌ Kafka Status Consumer Error: ${err} ${message.value?.toString()}`);
+          logger.error(`❌ Kafka Status Consumer Error: ${err}`);
           if (err instanceof SyntaxError) {
             resolveOffset(message.offset);
           } else {
-            throw err;
+            throw err; // Critical DB error should stop the consumer to prevent data loss
           }
         }
       }
@@ -197,10 +222,10 @@ class KafkaService {
   }
 
   /**
-   * Disconnect producer and consumer
+   * Gracefully shuts down all Kafka connections.
    */
   async disconnect() {
-    if (this.producer) await this.producer.disconnect();
+    if (this.producer) await this.producer.connect().then(() => this.producer?.disconnect());
     for (const consumer of this.consumers) {
       await consumer.disconnect();
     }
@@ -209,6 +234,6 @@ class KafkaService {
   }
 }
 
-// Export a singleton instance
+// Export a singleton instance of the Kafka service
 export const kafkaService = new KafkaService();
 export default kafkaService;
