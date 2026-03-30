@@ -28,11 +28,11 @@ function getEnv(key: string, required = true, defaultValue?: string): string {
 
 // --- SERVER INSTANCE CONFIGURATION ---
 // Environment mode (development, production)
-export const NODE_ENV = getEnv("NODE_ENV", false, "development");
+export const NODE_ENV = getEnv("NODE_ENV");
 // Internal port for the Express server (default: 8000)
-export const PORT = parseInt(getEnv("PORT", false, "8000"), 10);
+export const PORT = parseInt(getEnv("PORT"), 10);
 // External URL for the S3 Reverse Proxy (used to generate project preview links)
-export const S3_REVERSE_PROXY_URL = getEnv("S3_REVERSE_PROXY_URL", false, "http://localhost:8080");
+export const S3_REVERSE_PROXY_URL = getEnv("S3_REVERSE_PROXY_URL");
 
 // --- AWS GLOBAL CONFIGURATION ---
 // AWS region for all service interactions (e.g., 'ap-south-1')
@@ -49,15 +49,15 @@ export const S3_BUCKET_NAME = getEnv("S3_BUCKET_NAME");
 
 // --- POSTGRESQL (MAIN DB) CONFIGURATION ---
 // Option 1: Full connection URI
-export const DATABASE_URL = getEnv("DATABASE_URL", false);
+export const DATABASE_URL = getEnv("DATABASE_URL");
 // Optional SSL certificate for secure DB connections
-export const POSTGRES_CA_CERT = getEnv("POSTGRES_CA_CERT", false);
+export const POSTGRES_CA_CERT = getEnv("POSTGRES_CA_CERT");
 // Option 2: Individual connection parameters
-export const DB_USER = getEnv("DB_USER", false);
-export const DB_HOST = getEnv("DB_HOST", false);
-export const DB_NAME = getEnv("DB_NAME", false);
-export const DB_PASSWORD = getEnv("DB_PASSWORD", false);
-export const DB_PORT = getEnv("DB_PORT", false);
+export const DB_USER = getEnv("DB_USER");
+export const DB_HOST = getEnv("DB_HOST");
+export const DB_NAME = getEnv("DB_NAME");
+export const DB_PASSWORD = getEnv("DB_PASSWORD");
+export const DB_PORT = getEnv("DB_PORT");
 
 // --- KAFKA (LOG STREAMING) CONFIGURATION ---
 // Kafka broker address(es)
@@ -66,9 +66,9 @@ export const KAFKA_BROKER = getEnv("KAFKA_BROKER");
 export const KAFKA_USERNAME = getEnv("KAFKA_USERNAME");
 export const KAFKA_PASSWORD = getEnv("KAFKA_PASSWORD");
 // Static client ID for the main server producer
-export const KAFKA_CLIENT_ID = getEnv("KAFKA_CLIENT_ID", false, "server-client");
+export const KAFKA_CLIENT_ID = getEnv("KAFKA_CLIENT_ID");
 // Optional CA certificate for Kafka SSL
-export const KAFKA_CA_CERT = getEnv("KAFKA_CA_CERT", false);
+export const KAFKA_CA_CERT = getEnv("KAFKA_CA_CERT");
 
 // --- AWS ECS (COMPUTE) CONFIGURATION ---
 // Name of the container within the Task Definition
