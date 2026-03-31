@@ -2,8 +2,8 @@
 FROM node:20-slim
 
 # Labels for better image management
-LABEL maintainer="Antigravity Build System"
-LABEL description="Highly-performant build container for serverless React deployments"
+LABEL maintainer="React App Deployment System"
+LABEL description="Highly-performant build container for automated React deployments"
 
 # Install system dependencies (git for cloning, curl for health checks, unzip for bun)
 # Consolidate RUN commands to reduce layer count and clean up apt cache
@@ -27,12 +27,8 @@ COPY package.json tsconfig.json bun.lock ./
 # Use high-performance Bun for container's internal dependency setup
 RUN bun install --production
 
-# Strategy: Copy source code and orchestration script after dependencies are ready
+# Strategy: Copy source code after dependencies are ready
 COPY src/ ./src/
-COPY main.sh ./
 
-# Final permissions check for execution
-RUN chmod +x main.sh
-
-# Entrypoint: Bootstraps the orchestration logic
-ENTRYPOINT [ "/home/app/main.sh" ]
+# Entrypoint: Executes the build orchestration directly via Bun
+ENTRYPOINT [ "bun", "run", "src/index.ts" ]
