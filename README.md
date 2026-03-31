@@ -6,6 +6,11 @@ A high-performance, event-driven deployment infrastructure for React application
 ![Tech Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20Express%20%7C%20Kafka%20%7C%20ECS-original?style=for-the-badge)
 ![Hosting](https://img.shields.io/badge/Hosting-AWS%20S3%20%2B%20SQS-orange?style=for-the-badge)
 
+![Main Dashboard](./web/public/screenshots/main-dashboard.png)
+![Deployment Logs](./web/public/screenshots/deployment-logs.png)
+![Project Configuration](./web/public/screenshots/project-configuration.png)
+![Dashboard Overview](./web/public/screenshots/dashboard-primary.png)
+
 ## 🏗️ Core Architecture
 
 This system allows users to deploy React repositories by simply providing a GitHub URL. It automates the entire lifecycle:
