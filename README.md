@@ -6,11 +6,11 @@ A high-performance, event-driven deployment infrastructure for React application
 ![Tech Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20Express%20%7C%20Kafka%20%7C%20ECS-original?style=for-the-badge)
 ![Hosting](https://img.shields.io/badge/Hosting-AWS%20S3%20%2B%20SQS-orange?style=for-the-badge)
 
-| ![Main Dashboard](./apps/web/public/screenshots/main-dashboard.png) | ![Deployment Logs](./apps/web/public/screenshots/deployment-logs.png) |
+| ![Deployment Logs](./apps/web/public/screenshots/deployment-logs.png) | ![Deployments List](./apps/web/public/screenshots/deployments-list.png) |
 | :---: | :---: |
-| **Main Dashboard** | **Deployment Logs** |
-| ![Project Configuration](./apps/web/public/screenshots/project-configuration.png) | ![Dashboard Overview](./apps/web/public/screenshots/dashboard-primary.png) |
-| **Project Configuration** | **Dashboard Overview** |
+| **Deployment Logs** | **Deployments List** |
+| ![Project Overview](./apps/web/public/screenshots/project-overview.png) | ![Dashboard](./apps/web/public/screenshots/dashboard.png) |
+| **Project Overview** | **Dashboard** |
 
 ## 🏗️ Core Architecture
 
