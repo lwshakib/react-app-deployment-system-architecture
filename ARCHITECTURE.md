@@ -56,7 +56,7 @@ sequenceDiagram
 
 ### 3. **Build Worker (Docker)**
 - Lightweight, ephemeral container.
-- Uses **Bun** or **Node.js** for high-speed builds.
+- Uses **Node.js** for high-speed builds.
 - Automatically handles `npm`, `yarn`, or `pnpm` based on repository structure.
 - **S3 Sync**: Uses AWS SDK to concurrently upload build artifacts (HTML, JS, CSS).
 

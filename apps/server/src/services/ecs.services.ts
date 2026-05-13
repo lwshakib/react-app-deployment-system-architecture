@@ -73,7 +73,7 @@ class ECSService {
             name: ECS_CONTAINER_NAME,
             environment: [
               // Deployment Context
-              { name: "GIT_REPOSITORY__URL", value: gitURL },
+              { name: "GIT_REPOSITORY_URL", value: gitURL },
               { name: "PROJECT_ID", value: projectId },
               { name: "DEPLOYMENT_ID", value: deploymentId },
               { name: "PROJECT_NAME", value: projectName },

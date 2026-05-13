@@ -7,7 +7,8 @@ Thank you for your interest in contributing! We welcome help in improving our de
 To contribute to this project, you will need a complete local environment.
 
 ### Prerequisites
-- **Bun** (Preferred) or **Node.js** v20+.
+- **Node.js** v20+.
+- **pnpm** v9+.
 - **Docker** and **Docker Compose**.
 - **AWS CLI** configured with an IAM user that has S3, SQS, and ECS permissions.
 
@@ -20,38 +21,34 @@ To contribute to this project, you will need a complete local environment.
       git clone https://github.com/your-username/react-app-deployment-system-architecture.git
       cd react-app-deployment-system-architecture
       ```
-    - Add the original repository as an `upstream` remote to stay in sync:
-      ```bash
-      git remote add upstream https://github.com/lwshakib/react-app-deployment-system-architecture.git
-      ```
-2.  **Run Infrastructure**:
+2.  **Install Dependencies**:
+    ```bash
+    pnpm install
+    ```
+3.  **Run Infrastructure**:
     ```bash
     docker-compose up -d
     ```
     This starts a local ClickHouse instance for logging.
-3.  **Environment Variables**:
-    Setup `.env` files in `server`, `web`, and `s3-reverse-proxy`. Use their respective `.env.example` as a template.
-4.  **Install & Run**:
-    It is recommended to use **Bun** for the fastest developer experience.
+4.  **Environment Variables**:
+    Setup `.env` files in `apps/server`, `apps/web`, and `apps/s3-reverse-proxy`. Use their respective `.env.example` as a template.
+5.  **Run Services**:
     ```bash
-    # In each service directory (server, web, s3-reverse-proxy, build-container)
-    bun install
-    bun run dev # web (Next.js)
-    bun run index.ts # other services
+    pnpm dev
     ```
 
 ## 🛠 Project Structure Overview
 
--   **`/web`**: Next.js frontend using Tailwind and Radix.
--   **`/server`**: Express backend orchestrating AWS and local builds.
--   **`/build-container`**: Dockerized build worker.
--   **`/s3-reverse-proxy`**: High-performance subdomain proxy.
+-   **`apps/web`**: Next.js frontend using Tailwind and Radix.
+-   **`apps/server`**: Express backend orchestrating AWS and local builds.
+-   **`apps/build-container`**: Dockerized build worker.
+-   **`apps/s3-reverse-proxy`**: High-performance subdomain proxy.
 
 ## 📬 Submitting Changes
 
 1.  **Create a Branch**: `git checkout -b feat/your-feature-name`.
 2.  **Commit with Clarity**: Use conventional commits (e.g., `feat:`, `fix:`, `docs:`).
-3.  **Verify Built Packages**: Ensure `npm run build` passes in `server` and `web`.
+3.  **Verify Built Packages**: Ensure `pnpm build` passes at the root or for the modified workspace.
 4.  **Open a Pull Request**: Provide a clear description of your changes and why they are necessary.
 
 ## 🐛 Reporting Bugs
@@ -59,7 +56,7 @@ To contribute to this project, you will need a complete local environment.
 Please use the GitHub Issue tracker to report bugs. Include:
 - A clear description of the bug.
 - Steps to reproduce.
-- Your local environment details (OS, Bun/Node version).
+- Your local environment details (OS, Node/pnpm version).
 
 ## 📄 License
 

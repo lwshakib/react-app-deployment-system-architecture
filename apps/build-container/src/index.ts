@@ -16,7 +16,7 @@ import { s3Service } from "./services/s3.services.js"
 import logger from "./logger/winston.logger.js"
 
 // Import environment variables required for the build process
-import { DEPLOYMENT_ID, GIT_REPOSITORY__URL, PROJECT_ID } from "./envs.js"
+import { DEPLOYMENT_ID, GIT_REPOSITORY_URL, PROJECT_ID } from "./envs.js"
 
 /**
  * Gracefully shuts down the process.
@@ -130,8 +130,8 @@ async function init() {
   const outDirPath = path.join(process.cwd(), "output")
 
   // Validate that the repository URL is provided
-  if (!GIT_REPOSITORY__URL) {
-    await kafkaService.publishLog("❌ ERROR: GIT_REPOSITORY__URL is missing!")
+  if (!GIT_REPOSITORY_URL) {
+    await kafkaService.publishLog("❌ ERROR: GIT_REPOSITORY_URL is missing!")
     await kafkaService.publishStatus("FAILED")
     await shutdown(1)
     return
@@ -144,7 +144,7 @@ async function init() {
 
   // --- STEP 1: Clone the Git Repository ---
   const cloneSuccess = await runCommand(
-    `git clone ${GIT_REPOSITORY__URL} .`,
+    `git clone ${GIT_REPOSITORY_URL} .`,
     outDirPath,
     "Cloning Repository"
   )

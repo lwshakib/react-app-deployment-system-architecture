@@ -45,7 +45,7 @@ class DockerService {
     })
 
     // Inject deployment-specific build parameters
-    args.push("-e", `GIT_REPOSITORY__URL=${gitURL}`)
+    args.push("-e", `GIT_REPOSITORY_URL=${gitURL}`)
     args.push("-e", `PROJECT_ID=${projectId}`)
     args.push("-e", `DEPLOYMENT_ID=${deploymentId}`)
     args.push("-e", `PROJECT_NAME=${projectName}`)

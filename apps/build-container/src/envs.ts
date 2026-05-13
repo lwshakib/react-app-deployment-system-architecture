@@ -35,7 +35,7 @@ export const DEPLOYMENT_ID = getEnv("DEPLOYMENT_ID")
 
 // --- GIT CONFIGURATION ---
 // The URL of the repository to be cloned and built (e.g., GitHub, GitLab)
-export const GIT_REPOSITORY__URL = getEnv("GIT_REPOSITORY__URL")
+export const GIT_REPOSITORY_URL = getEnv("GIT_REPOSITORY_URL")
 
 // --- KAFKA CONFIGURATION ---
 // Kafka broker address (e.g., "pkc-abcde.us-east-1.aws.confluent.cloud:9092")
