@@ -1,18 +1,18 @@
 /**
  * Custom API Error Class.
  * This class extends the native Error to provide additional context for HTTP responses,
- * such as status codes and specific error details. It is designed to be caught 
+ * such as status codes and specific error details. It is designed to be caught
  * by the centralized errorHandler middleware.
  */
 export class ApiError extends Error {
   // HTTP status code (e.g., 400, 404, 500)
-  readonly statusCode: number;
+  readonly statusCode: number
   // Always null for error responses to maintain consistent payload shape
-  readonly data: null;
+  readonly data: null
   // Explicit flag to indicate failure to the client
-  readonly success: false;
+  readonly success: false
   // Array to store multiple error details (e.g., Zod validation issues)
-  readonly errors: unknown[];
+  readonly errors: unknown[]
 
   /**
    * @param statusCode - The HTTP status code
@@ -27,20 +27,20 @@ export class ApiError extends Error {
     stack: string = ""
   ) {
     // Call the parent Error constructor
-    super(message);
+    super(message)
 
-    this.statusCode = statusCode;
-    this.data = null;
-    this.success = false;
-    this.errors = errors;
+    this.statusCode = statusCode
+    this.data = null
+    this.success = false
+    this.errors = errors
 
     // Handle stack trace generation or override
     if (stack) {
-      this.stack = stack;
+      this.stack = stack
     } else {
-      // captureStackTrace is a V8-specific method that creates the .stack property 
+      // captureStackTrace is a V8-specific method that creates the .stack property
       // on the instance, excluding the constructor call itself from the trace.
-      Error.captureStackTrace(this, this.constructor);
+      Error.captureStackTrace(this, this.constructor)
     }
   }
 }

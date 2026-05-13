@@ -5,10 +5,14 @@
  * This eliminates the need for repeated try-catch blocks in route logic.
  */
 
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express"
 
 // Type definition for an asynchronous Express request handler
-type RequestHandler = (req: Request, res: Response, next: NextFunction) => Promise<any>;
+type RequestHandler = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => Promise<any>
 
 /**
  * Wraps a promise-returning function and catches any rejections.
@@ -18,6 +22,6 @@ type RequestHandler = (req: Request, res: Response, next: NextFunction) => Promi
 export const asyncHandler = (requestHandler: RequestHandler) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // Resolve the promise from the request handler and forward errors to the global error handler
-    Promise.resolve(requestHandler(req, res, next)).catch((err) => next(err));
-  };
-};
+    Promise.resolve(requestHandler(req, res, next)).catch((err) => next(err))
+  }
+}

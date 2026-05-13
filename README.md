@@ -21,18 +21,20 @@ This system allows users to deploy React repositories by simply providing a GitH
 
 ## 📂 Project Structure
 
-| Component | Description |
-| :--- | :--- |
-| [`/web`](./web) | Next.js Dashboard for managing projects and viewing live builds. |
-| [`/server`](./server) | Main API server (Express) orchestrating the deployment lifecycle. |
-| [`/build-container`](./build-container) | The ephemeral build environment (Docker) that compiles the React app. |
-| [`/s3-reverse-proxy`](./s3-reverse-proxy) | Wildcard subdomain proxy for serving S3-hosted applications. |
+| Component | Path | Description |
+| :--- | :--- | :--- |
+| **Web Dashboard** | [`apps/web`](./apps/web) | Next.js 16 Dashboard for managing projects and viewing live builds. |
+| **Orchestrator** | [`apps/server`](./apps/server) | Main API server (Express) orchestrating the deployment lifecycle. |
+| **Build Worker** | [`apps/build-container`](./apps/build-container) | The ephemeral build environment (Docker) that compiles the React app. |
+| **Edge Proxy** | [`apps/s3-reverse-proxy`](./apps/s3-reverse-proxy) | Wildcard subdomain proxy for serving S3-hosted applications. |
+| **Shared UI** | [`packages/ui`](./packages/ui) | Centralized design system used by the dashboard. |
 
 ## 🛠️ Getting Started
 
 ### Prerequisites
 
-- **Bun** (Preferred) or **Node.js** v20+
+- **Node.js** v20+
+- **pnpm** v9+ (Package Manager)
 - **Docker** & **Docker Compose**
 - **AWS Account** (S3, SQS, ECS configured)
 - **Aiven/Upstash** (Kafka, Redis, Postgres, ClickHouse)
@@ -47,18 +49,16 @@ This system allows users to deploy React repositories by simply providing a GitH
 
 2.  **Install Dependencies**:
     ```bash
-    # Root dependencies (if any)
-    bun install
-
-    # Install for all services
-    cd server && bun install
-    cd ../web && bun install
-    cd ../build-container && bun install
-    cd ../s3-reverse-proxy && bun install
+    pnpm install
     ```
 
 3.  **Environment Variables**:
-    Copy `.env.example` to `.env` in `/server`, `/web`, and `/s3-reverse-proxy`. Update with your actual credentials.
+    Copy `.env.example` to `.env` in each application folder under `apps/`. Update with your actual credentials.
+    ```bash
+    cp apps/server/.env.example apps/server/.env
+    cp apps/web/.env.example apps/web/.env
+    cp apps/s3-reverse-proxy/.env.example apps/s3-reverse-proxy/.env
+    ```
 
 4.  **Run Infrastructure**:
     ```bash
@@ -66,7 +66,10 @@ This system allows users to deploy React repositories by simply providing a GitH
     ```
 
 5.  **Start Services**:
-    Open multiple terminals and run `bun run dev` (or `bun run index.ts`) in each service directory.
+    Run all services in development mode using Turbo:
+    ```bash
+    pnpm dev
+    ```
 
 ## 📖 Detailed Documentation
 
@@ -77,4 +80,4 @@ This system allows users to deploy React repositories by simply providing a GitH
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

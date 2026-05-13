@@ -1,12 +1,17 @@
 /**
  * ClickHouse Analytics Reset Script.
- * This script automates the deletion of the 'log_events' table to clear all 
+ * This script automates the deletion of the 'log_events' table to clear all
  * build-time logs and ensure a clean environment for the analytics engine.
  */
 
-import { createClient } from "@clickhouse/client";
-import { CLICKHOUSE_DB, CLICKHOUSE_PASSWORD, CLICKHOUSE_URL, CLICKHOUSE_USER } from "../envs.js";
-import logger from "../logger/winston.logger.js";
+import { createClient } from "@clickhouse/client"
+import {
+  CLICKHOUSE_DB,
+  CLICKHOUSE_PASSWORD,
+  CLICKHOUSE_URL,
+  CLICKHOUSE_USER,
+} from "../envs.js"
+import logger from "../logger/winston.logger.js"
 
 /**
  * Global ClickHouse Client Configuration.
@@ -16,28 +21,28 @@ const client = createClient({
   username: CLICKHOUSE_USER,
   password: CLICKHOUSE_PASSWORD,
   database: CLICKHOUSE_DB,
-});
+})
 
 /**
  * Main Reset function for ClickHouse.
  */
 async function resetClickHouse() {
-  logger.info("🗑️ Resetting ClickHouse...");
+  logger.info("🗑️ Resetting ClickHouse...")
 
   try {
     // 1. Drop the log_events table if it exists
-    await client.exec({ query: "DROP TABLE IF EXISTS log_events" });
-    
-    logger.info("✅ ClickHouse log_events table deleted.");
+    await client.exec({ query: "DROP TABLE IF EXISTS log_events" })
+
+    logger.info("✅ ClickHouse log_events table deleted.")
   } catch (error) {
-    logger.error("❌ ClickHouse reset failed:", error);
-    process.exit(1);
+    logger.error("❌ ClickHouse reset failed:", error)
+    process.exit(1)
   } finally {
     // 2. Gracefully close the client connection
-    await client.close();
+    await client.close()
   }
 }
 
 resetClickHouse().then(() => {
-  process.exit(0);
-});
+  process.exit(0)
+})

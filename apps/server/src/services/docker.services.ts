@@ -4,9 +4,9 @@
  * directly on the host machine via the Docker CLI, instead of using AWS ECS.
  */
 
-import { spawn } from "child_process";
-import logger from "../logger/winston.logger.js";
-import * as envs from "../envs.js";
+import { spawn } from "child_process"
+import logger from "../logger/winston.logger.js"
+import * as envs from "../envs.js"
 
 class DockerService {
   /**
@@ -15,12 +15,12 @@ class DockerService {
    * @returns A promise that resolves if the build completes successfully
    */
   async runTask(params: {
-    gitURL: string;
-    projectId: string;
-    deploymentId: string;
-    projectName: string;
+    gitURL: string
+    projectId: string
+    deploymentId: string
+    projectName: string
   }) {
-    const { gitURL, projectId, deploymentId, projectName } = params;
+    const { gitURL, projectId, deploymentId, projectName } = params
 
     // Define the environment variables the container needs to interact with S3/Kafka
     const envVars: Record<string, string | undefined> = {
@@ -31,53 +31,59 @@ class DockerService {
       KAFKA_USERNAME: envs.KAFKA_USERNAME,
       KAFKA_PASSWORD: envs.KAFKA_PASSWORD,
       KAFKA_CA_CERT: envs.KAFKA_CA_CERT,
-      S3_BUCKET_NAME: envs.S3_BUCKET_NAME
-    };
+      S3_BUCKET_NAME: envs.S3_BUCKET_NAME,
+    }
 
     // Prepare the 'docker run' command arguments
-    const args = ["run", "--rm"]; // --rm ensures the container is deleted after exiting
+    const args = ["run", "--rm"] // --rm ensures the container is deleted after exiting
 
     // Inject system-wide environment variables into the container
     Object.entries(envVars).forEach(([key, value]) => {
       if (value) {
-        args.push("-e", `${key}=${value}`);
+        args.push("-e", `${key}=${value}`)
       }
-    });
+    })
 
     // Inject deployment-specific build parameters
-    args.push("-e", `GIT_REPOSITORY__URL=${gitURL}`);
-    args.push("-e", `PROJECT_ID=${projectId}`);
-    args.push("-e", `DEPLOYMENT_ID=${deploymentId}`);
-    args.push("-e", `PROJECT_NAME=${projectName}`);
+    args.push("-e", `GIT_REPOSITORY__URL=${gitURL}`)
+    args.push("-e", `PROJECT_ID=${projectId}`)
+    args.push("-e", `DEPLOYMENT_ID=${deploymentId}`)
+    args.push("-e", `PROJECT_NAME=${projectName}`)
 
     // Specify the local image name to run
-    args.push("build-container:latest");
+    args.push("build-container:latest")
 
-    logger.info(`🛠️ Triggering local Docker build for project: ${projectName}...`);
+    logger.info(
+      `🛠️ Triggering local Docker build for project: ${projectName}...`
+    )
 
     return new Promise((resolve, reject) => {
       // Spawn the 'docker' command as a child process
-      const p = spawn("docker", args);
+      const p = spawn("docker", args)
 
       // Stream stdout from the container to the server's logger
-      p.stdout?.on("data", (data) => logger.info(`[Docker Stdout]: ${String(data).trim()}`));
+      p.stdout?.on("data", (data) =>
+        logger.info(`[Docker Stdout]: ${String(data).trim()}`)
+      )
       // Stream stderr from the container to the server's logger
-      p.stderr?.on("data", (data) => logger.error(`[Docker Stderr]: ${String(data).trim()}`));
+      p.stderr?.on("data", (data) =>
+        logger.error(`[Docker Stderr]: ${String(data).trim()}`)
+      )
 
       // Handle process completion
       p.on("close", (code) => {
         if (code === 0) {
-          logger.info(`✅ Local Docker build completed successfully.`);
-          resolve(true); // Build succeeded
+          logger.info(`✅ Local Docker build completed successfully.`)
+          resolve(true) // Build succeeded
         } else {
-          logger.error(`❌ Local Docker build failed with exit code ${code}`);
-          reject(new Error(`Docker build failed with code ${code}`)); // Build failed
+          logger.error(`❌ Local Docker build failed with exit code ${code}`)
+          reject(new Error(`Docker build failed with code ${code}`)) // Build failed
         }
-      });
-    });
+      })
+    })
   }
 }
 
 // Export a singleton instance of the DockerService
-export const dockerService = new DockerService();
-export default dockerService;
+export const dockerService = new DockerService()
+export default dockerService

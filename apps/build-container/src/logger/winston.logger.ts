@@ -1,10 +1,10 @@
 /**
  * Winston Logging Configuration.
- * This module sets up a centralized logger for the build container, 
+ * This module sets up a centralized logger for the build container,
  * supporting console output and file-based persistence for different log levels.
  */
 
-import winston from "winston";
+import winston from "winston"
 
 /**
  * Custom log levels for the application.
@@ -15,18 +15,18 @@ const levels = {
   warn: 1,
   info: 2,
   debug: 3,
-} as const;
+} as const
 
 // Define a type for our support log levels
-type LogLevel = keyof typeof levels;
+type LogLevel = keyof typeof levels
 
 /**
  * Determines the current log level.
  * @returns The active log level (defaults to 'debug' for maximum visibility in containers)
  */
 const level = (): LogLevel => {
-  return "debug"; 
-};
+  return "debug"
+}
 
 /**
  * Mapping of log levels to colors for console output.
@@ -36,10 +36,10 @@ const colors: Record<LogLevel, string> = {
   warn: "yellow",
   info: "blue",
   debug: "white",
-};
+}
 
 // Apply colors to Winston for prettier console logs
-winston.addColors(colors);
+winston.addColors(colors)
 
 /**
  * Defines the format for log entries.
@@ -52,10 +52,10 @@ const format = winston.format.combine(
   winston.format.colorize({ all: true }),
   // custom print function: [HH:mm:ss] LEVEL: Message
   winston.format.printf((info) => {
-    const { timestamp, level, message } = info;
-    return `[${timestamp}] ${level}: ${String(message)}`;
+    const { timestamp, level, message } = info
+    return `[${timestamp}] ${level}: ${String(message)}`
   })
-);
+)
 
 /**
  * Define where logs should be sent (transports).
@@ -67,17 +67,17 @@ const transports = [
   new winston.transports.File({ filename: "logs/error.log", level: "error" }),
   // Persist informational logs (and above) to an info file
   new winston.transports.File({ filename: "logs/info.log", level: "info" }),
-];
+]
 
 /**
  * Initialize the Winston logger instance.
  */
 const logger = winston.createLogger({
   level: level(), // Set minimum level to log
-  levels,         // Use our custom levels
-  format,         // Use our custom format
-  transports,     // Use our defined transports
-});
+  levels, // Use our custom levels
+  format, // Use our custom format
+  transports, // Use our defined transports
+})
 
 // Export the logger as the default for use throughout the application
-export default logger;
+export default logger

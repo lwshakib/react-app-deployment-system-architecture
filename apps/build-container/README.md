@@ -5,6 +5,7 @@ Ephemeral, specialized Docker container for cloning repositories, building React
 ## 🏗️ Core Logic
 
 The Build Worker manages the entire compilation lifecycle of a deployment:
+
 1.  **Clone**: Checks out the specified repository and commit from GitHub.
 2.  **Install**: Resolves dependencies using `npm`, `yarn`, or `pnpm`.
 3.  **Build**: Compiles the project (e.g., `npm run build`), generating a static distribution folder.
@@ -13,19 +14,19 @@ The Build Worker manages the entire compilation lifecycle of a deployment:
 
 ## 🛠️ Requirements
 
--   **Bun** v1.1+ (Runtime)
--   **Docker** (Containerization)
--   **Git** & **Node.js** (Package managers)
+- **Bun** v1.1+ (Runtime)
+- **Docker** (Containerization)
+- **Git** & **Node.js** (Package managers)
 
 ## 📡 Environment Variables
 
-| Variable | Description |
-| :--- | :--- |
-| `AWS_ACCESS_KEY_ID` | IAM User access key with S3 permissions. |
-| `AWS_SECRET_ACCESS_KEY` | IAM User secret key. |
-| `S3_BUCKET_NAME` | Target S3 bucket for build artifacts. |
-| `KAFKA_BROKER` | Address of the Kafka cluster. |
-| `DEPLOYMENT_ID` | UUID of the deployment for identification. |
+| Variable                | Description                                |
+| :---------------------- | :----------------------------------------- |
+| `AWS_ACCESS_KEY_ID`     | IAM User access key with S3 permissions.   |
+| `AWS_SECRET_ACCESS_KEY` | IAM User secret key.                       |
+| `S3_BUCKET_NAME`        | Target S3 bucket for build artifacts.      |
+| `KAFKA_BROKER`          | Address of the Kafka cluster.              |
+| `DEPLOYMENT_ID`         | UUID of the deployment for identification. |
 
 ## 🚀 Running Locally
 

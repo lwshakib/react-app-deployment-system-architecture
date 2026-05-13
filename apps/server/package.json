@@ -22,7 +22,9 @@
     "sqs:reset": "node dist/scripts/reset-sqs.js",
     "ecs:reset": "node dist/scripts/reset-ecs.js",
     "infra:setup": "pnpm postgres:setup && pnpm clickhouse:setup && pnpm kafka:setup && pnpm s3:setup && pnpm sqs:setup && pnpm ecs:setup",
-    "infra:reset": "pnpm ecs:reset && pnpm sqs:reset && pnpm s3:reset && pnpm kafka:reset && pnpm clickhouse:reset && pnpm postgres:reset"
+    "infra:reset": "pnpm ecs:reset && pnpm sqs:reset && pnpm s3:reset && pnpm kafka:reset && pnpm clickhouse:reset && pnpm postgres:reset",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json}\""
   },
   "keywords": [],
   "author": "",

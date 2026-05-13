@@ -41,22 +41,22 @@ Before running the scripts, you need an IAM user with the permissions to provisi
       ```
 
 ### Running the Setup Scripts
-Execute these commands from the `server` directory. The scripts will create the resources and automatically update your `.env` file with the resulting ARNs and URLs.
+Execute these commands from the root directory using the `server` workspace. The scripts will create the resources and automatically update your `apps/server/.env` file with the resulting ARNs and URLs.
 
 ```bash
 # 1. Provision S3 Bucket & Public Policy
-bun run src/scripts/setup-s3.ts
+pnpm --filter server s3:setup
 
 # 2. Provision SQS Task Queue
-bun run src/scripts/setup-sqs.ts
+pnpm --filter server sqs:setup
 
 # 3. Comprehensive ECS Setup (Roles, ECR, Cluster, Task Definition, Networking)
 # Note: This will build and push the local build-container image to AWS ECR.
-bun run src/scripts/setup-ecs.ts
+pnpm --filter server ecs:setup
 ```
 
 > [!TIP]
-> **Cleanup Scripts**: If you need to teardown your infrastructure, corresponding `reset-*.ts` scripts are available in the same directory. Use them with caution as they will delete AWS resources.
+> **Cleanup Scripts**: If you need to teardown your infrastructure, corresponding `infra:reset` scripts are available in the server workspace. Use them with caution as they will delete AWS resources.
 
 ---
 

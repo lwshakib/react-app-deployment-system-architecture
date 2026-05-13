@@ -4,16 +4,16 @@
  * router instance that is used by the main Express application.
  */
 
-import { Router } from "express";
-import deploymentRouter from "./deployment.routes.js";
-import logRouter from "./log.routes.js";
+import { Router } from "express"
+import deploymentRouter from "./deployment.routes.js"
+import logRouter from "./log.routes.js"
 
-const router = Router();
+const router = Router()
 
 // Register the deployment router under the '/deployments' path
-router.use("/deployments", deploymentRouter);
+router.use("/deployments", deploymentRouter)
 
 // Register the log router under the '/logs' path
-router.use("/logs", logRouter);
+router.use("/logs", logRouter)
 
-export default router;
+export default router

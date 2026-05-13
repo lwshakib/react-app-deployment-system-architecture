@@ -4,8 +4,8 @@
  * console colorization and multiple log file destinations based on severity.
  */
 
-import winston from "winston";
-import { NODE_ENV } from "../envs.js";
+import winston from "winston"
+import { NODE_ENV } from "../envs.js"
 
 /**
  * Custom severity levels for the application.
@@ -17,20 +17,20 @@ const levels = {
   info: 2,
   http: 3,
   debug: 4,
-} as const;
+} as const
 
 // Define a type for our supported log levels
-type LogLevel = keyof typeof levels;
+type LogLevel = keyof typeof levels
 
 /**
  * Select the minimum log level to record based on the current environment.
  * @returns 'debug' in development for detailed logs, 'warn' in production to minimize storage.
  */
 const level = (): LogLevel => {
-  const env = NODE_ENV;
-  const isDevelopment = env === "development";
-  return isDevelopment ? "debug" : "warn";
-};
+  const env = NODE_ENV
+  const isDevelopment = env === "development"
+  return isDevelopment ? "debug" : "warn"
+}
 
 /**
  * Color mapping for each log level for console readability.
@@ -41,10 +41,10 @@ const colors: Record<LogLevel, string> = {
   info: "blue",
   http: "magenta",
   debug: "white",
-};
+}
 
 // Register custom colors with Winston
-winston.addColors(colors);
+winston.addColors(colors)
 
 /**
  * Defines the log message format: [Timestamp] LEVEL: Message
@@ -56,10 +56,10 @@ const format = winston.format.combine(
   winston.format.colorize({ all: true }),
   // Custom print function to generate the final log string
   winston.format.printf((info: winston.Logform.TransformableInfo) => {
-    const { timestamp, level, message } = info;
-    return `[${timestamp}] ${level}: ${String(message)}`;
+    const { timestamp, level, message } = info
+    return `[${timestamp}] ${level}: ${String(message)}`
   })
-);
+)
 
 /**
  * Define where the logs should be sent (transports).
@@ -82,17 +82,17 @@ const transports: winston.transport[] = [
     filename: "logs/http.log",
     level: "http",
   }),
-];
+]
 
 /**
  * Initialize the primary Winston logger instance.
  */
 const logger = winston.createLogger({
   level: level(), // Set minimum logging threshold
-  levels,         // Use custom severity hierarchy
-  format,         // Use custom message template
-  transports,     // Use defined output destinations
-});
+  levels, // Use custom severity hierarchy
+  format, // Use custom message template
+  transports, // Use defined output destinations
+})
 
 // Export the logger as the default for application-wide use
-export default logger;
+export default logger

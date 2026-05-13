@@ -1,11 +1,11 @@
 /**
  * Morgan HTTP Request Logger Middleware.
- * This module integrates Morgan with Winston to ensure all incoming HTTP 
+ * This module integrates Morgan with Winston to ensure all incoming HTTP
  * requests are logged using our centralized logging system.
  */
 
-import morgan, { type StreamOptions } from "morgan";
-import logger from "./winston.logger.js";
+import morgan, { type StreamOptions } from "morgan"
+import logger from "./winston.logger.js"
 
 /**
  * Define a custom stream for Morgan.
@@ -14,9 +14,9 @@ import logger from "./winston.logger.js";
 const stream: StreamOptions = {
   write: (message: string): void => {
     // Trim the message to remove trailing newlines added by Morgan
-    logger.http(message.trim());
+    logger.http(message.trim())
   },
-};
+}
 
 /**
  * Determine if logging should be skipped.
@@ -24,9 +24,9 @@ const stream: StreamOptions = {
  * though this can be adjusted for production auditing.
  */
 const skip = (): boolean => {
-  const env = process.env.NODE_ENV ?? "development";
-  return env !== "development";
-};
+  const env = process.env.NODE_ENV ?? "development"
+  return env !== "development"
+}
 
 /**
  * Initialize Morgan middleware.
@@ -40,7 +40,7 @@ const morganMiddleware = morgan(
     stream,
     skip,
   }
-);
+)
 
 // Export as the default middleware for Express
-export default morganMiddleware;
+export default morganMiddleware

@@ -4,27 +4,27 @@
  * It uses AWS Fargate to run the build-container image for every new deployment.
  */
 
-import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
-import logger from "../logger/winston.logger.js";
-import { 
-  AWS_ACCESS_KEY_ID, 
-  AWS_REGION, 
-  AWS_SECRET_ACCESS_KEY, 
-  ECS_CLUSTER_ARN, 
-  ECS_CONTAINER_NAME, 
-  ECS_SECURITY_GROUPS, 
-  ECS_SUBNETS, 
-  ECS_TASK_DEFINITION_ARN, 
-  KAFKA_BROKER, 
-  KAFKA_CA_CERT, 
-  KAFKA_PASSWORD, 
-  KAFKA_USERNAME, 
-  S3_BUCKET_NAME 
-} from "../envs.js";
+import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs"
+import logger from "../logger/winston.logger.js"
+import {
+  AWS_ACCESS_KEY_ID,
+  AWS_REGION,
+  AWS_SECRET_ACCESS_KEY,
+  ECS_CLUSTER_ARN,
+  ECS_CONTAINER_NAME,
+  ECS_SECURITY_GROUPS,
+  ECS_SUBNETS,
+  ECS_TASK_DEFINITION_ARN,
+  KAFKA_BROKER,
+  KAFKA_CA_CERT,
+  KAFKA_PASSWORD,
+  KAFKA_USERNAME,
+  S3_BUCKET_NAME,
+} from "../envs.js"
 
 class ECSService {
   // Shared AWS ECS Client
-  private client: ECSClient;
+  private client: ECSClient
 
   /**
    * Initializes the ECS client with infrastructure credentials.
@@ -36,7 +36,7 @@ class ECSService {
         accessKeyId: AWS_ACCESS_KEY_ID,
         secretAccessKey: AWS_SECRET_ACCESS_KEY,
       },
-    });
+    })
   }
 
   /**
@@ -45,12 +45,12 @@ class ECSService {
    * @returns The ECS response including the Task ARN
    */
   async runTask(params: {
-    gitURL: string;
-    projectId: string;
-    deploymentId: string;
-    projectName: string;
+    gitURL: string
+    projectId: string
+    deploymentId: string
+    projectName: string
   }) {
-    const { gitURL, projectId, deploymentId, projectName } = params;
+    const { gitURL, projectId, deploymentId, projectName } = params
 
     // Construct the command to run a single Fargate task
     const command = new RunTaskCommand({
@@ -91,20 +91,20 @@ class ECSService {
           },
         ],
       },
-    });
+    })
 
     try {
       // Execute the command via the AWS SDK
-      const response = await this.client.send(command);
-      logger.info(`🚀 ECS Task triggered: ${response.tasks?.[0]?.taskArn}`);
-      return response;
+      const response = await this.client.send(command)
+      logger.info(`🚀 ECS Task triggered: ${response.tasks?.[0]?.taskArn}`)
+      return response
     } catch (error) {
-      logger.error("❌ ECS Task trigger error:", error);
-      throw error;
+      logger.error("❌ ECS Task trigger error:", error)
+      throw error
     }
   }
 }
 
 // Export a singleton instance of the ECS service
-export const ecsService = new ECSService();
-export default ecsService;
+export const ecsService = new ECSService()
+export default ecsService

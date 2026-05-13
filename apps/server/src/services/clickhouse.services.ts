@@ -1,16 +1,21 @@
 /**
  * ClickHouse Database Service.
- * This service handles interactions with the ClickHouse database, 
+ * This service handles interactions with the ClickHouse database,
  * primarily used for storing and querying large volumes of build logs.
  */
 
-import { createClient, type ClickHouseClient } from "@clickhouse/client";
-import logger from "../logger/winston.logger.js";
-import { CLICKHOUSE_DB, CLICKHOUSE_PASSWORD, CLICKHOUSE_URL, CLICKHOUSE_USER } from "../envs.js";
+import { createClient, type ClickHouseClient } from "@clickhouse/client"
+import logger from "../logger/winston.logger.js"
+import {
+  CLICKHOUSE_DB,
+  CLICKHOUSE_PASSWORD,
+  CLICKHOUSE_URL,
+  CLICKHOUSE_USER,
+} from "../envs.js"
 
 class ClickHouseService {
   // Internal ClickHouse JS client
-  private client: ClickHouseClient;
+  private client: ClickHouseClient
 
   /**
    * Initializes the ClickHouse client with provided environment credentials.
@@ -21,7 +26,7 @@ class ClickHouseService {
       username: CLICKHOUSE_USER,
       password: CLICKHOUSE_PASSWORD,
       database: CLICKHOUSE_DB,
-    });
+    })
   }
 
   /**
@@ -37,11 +42,11 @@ class ClickHouseService {
         query_params,
         // Using JSONEachRow format for easy integration with frontend
         format: "JSONEachRow",
-      });
-      return await resultSet.json();
+      })
+      return await resultSet.json()
     } catch (error) {
-      logger.error("❌ ClickHouse query error:", error);
-      throw error;
+      logger.error("❌ ClickHouse query error:", error)
+      throw error
     }
   }
 
@@ -51,11 +56,11 @@ class ClickHouseService {
    */
   async exec(query: string) {
     try {
-      await this.client.exec({ query });
-      logger.info("✅ ClickHouse command executed successfully");
+      await this.client.exec({ query })
+      logger.info("✅ ClickHouse command executed successfully")
     } catch (error) {
-      logger.error("❌ ClickHouse exec error:", error);
-      throw error;
+      logger.error("❌ ClickHouse exec error:", error)
+      throw error
     }
   }
 
@@ -70,10 +75,10 @@ class ClickHouseService {
         table,
         values,
         format: "JSONEachRow",
-      });
+      })
     } catch (error) {
-      logger.error(`❌ ClickHouse insert error into ${table}:`, error);
-      throw error;
+      logger.error(`❌ ClickHouse insert error into ${table}:`, error)
+      throw error
     }
   }
 
@@ -81,11 +86,11 @@ class ClickHouseService {
    * Gracefully close the client connection.
    */
   async close() {
-    await this.client.close();
-    logger.info("👋 ClickHouse disconnected");
+    await this.client.close()
+    logger.info("👋 ClickHouse disconnected")
   }
 }
 
 // Export a singleton instance for application-wide use
-export const clickHouseService = new ClickHouseService();
-export default clickHouseService;
+export const clickHouseService = new ClickHouseService()
+export default clickHouseService

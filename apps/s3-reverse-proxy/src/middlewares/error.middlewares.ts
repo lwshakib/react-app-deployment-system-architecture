@@ -1,13 +1,13 @@
 /**
  * Centralized Error Handling Middleware.
- * This middleware catches all errors passed to next() and formats them into 
+ * This middleware catches all errors passed to next() and formats them into
  * a consistent API response structure.
  */
 
-import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
-import { ApiError } from "../utils/ApiError.js";
-import logger from "../logger/winston.logger.js";
-import { NODE_ENV } from "../envs.js";
+import { Request, Response, NextFunction, ErrorRequestHandler } from "express"
+import { ApiError } from "../utils/ApiError.js"
+import logger from "../logger/winston.logger.js"
+import { NODE_ENV } from "../envs.js"
 
 /**
  * Global Error Handler for Express.
@@ -19,15 +19,15 @@ export const errorHandler: ErrorRequestHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  let error = err;
+  let error = err
 
-  // If the error is not an instance of our custom ApiError class, 
+  // If the error is not an instance of our custom ApiError class,
   // wrap it into one for consistent processing.
   if (!(error instanceof ApiError)) {
-    const statusCode = error.statusCode || 500;
-    const message = error.message || "Something went wrong";
+    const statusCode = error.statusCode || 500
+    const message = error.message || "Something went wrong"
     // Create new ApiError while preserving the original stack trace and error details
-    error = new ApiError(statusCode, message, err?.errors || [], err.stack);
+    error = new ApiError(statusCode, message, err?.errors || [], err.stack)
   }
 
   // Prepare the standardized JSON response body
@@ -36,13 +36,13 @@ export const errorHandler: ErrorRequestHandler = (
     message: error.message,
     // Only include the stack trace in development mode for security reasons
     ...(NODE_ENV === "development" ? { stack: error.stack } : {}),
-  };
+  }
 
   // Log the error concisely using Winston
   logger.error(
     `${req.method} ${req.url} - ${error.statusCode} - ${error.message}`
-  );
+  )
 
   // Send the error response to the client
-  res.status(error.statusCode).json(response);
-};
+  res.status(error.statusCode).json(response)
+}
