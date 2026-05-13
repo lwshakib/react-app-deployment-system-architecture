@@ -9,7 +9,7 @@ import mime from "mime-types";
 import fs from "fs";
 
 // Import AWS credentials and bucket configuration
-import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME } from "../envs";
+import { AWS_ACCESS_KEY_ID, AWS_REGION, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME } from "../envs.js";
 
 class S3Service {
   // Internal AWS S3 SDK client

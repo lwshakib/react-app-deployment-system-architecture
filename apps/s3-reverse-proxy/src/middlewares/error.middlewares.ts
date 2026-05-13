@@ -5,9 +5,9 @@
  */
 
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
-import { ApiError } from "../utils/ApiError";
-import logger from "../logger/winston.logger";
-import { NODE_ENV } from "../envs";
+import { ApiError } from "../utils/ApiError.js";
+import logger from "../logger/winston.logger.js";
+import { NODE_ENV } from "../envs.js";
 
 /**
  * Global Error Handler for Express.

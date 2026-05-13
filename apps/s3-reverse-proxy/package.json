@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "build": "tsc",
+    "dev": "tsc-watch --onSuccess \"node dist/index.js\"",
+    "build": "tsc -p .",
     "start": "node dist/index.js"
   },
   "dependencies": {
@@ -22,7 +22,7 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^22.13.4",
     "@types/pg": "^8.11.11",
-    "tsx": "^4.19.2",
+    "tsc-watch": "^7.2.0",
     "typescript": "^5.7.3"
   }
 }

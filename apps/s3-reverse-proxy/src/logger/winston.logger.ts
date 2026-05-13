@@ -5,7 +5,7 @@
  */
 
 import winston from "winston";
-import { NODE_ENV } from "../envs";
+import { NODE_ENV } from "../envs.js";
 
 /**
  * Log severity levels.

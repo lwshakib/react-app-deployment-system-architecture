@@ -21,7 +21,7 @@ import {
   Globe
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { Button } from "@/components/ui/button";
+import { Button } from "@workspace/ui/components/button";
 
 // Specialized UI components from the local shadcn/ui library
 import { 
@@ -29,7 +29,7 @@ import {
   AccordionContent, 
   AccordionItem, 
   AccordionTrigger 
-} from "@/components/ui/accordion";
+} from "@workspace/ui/components/accordion";
 
 // Define the shape of a deployment object for TypeScript safety
 interface Deployment {

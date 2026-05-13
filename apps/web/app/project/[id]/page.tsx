@@ -23,7 +23,7 @@ import {
   GitCommit
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { Button } from "@/components/ui/button";
+import { Button } from "@workspace/ui/components/button";
 
 
 import { 
@@ -31,7 +31,7 @@ import {
   TabsContent, 
   TabsList, 
   TabsTrigger 
-} from "@/components/ui/tabs";
+} from "@workspace/ui/components/tabs";
 
 // Define the shape of a deployment object for TypeScript safety
 interface Deployment {

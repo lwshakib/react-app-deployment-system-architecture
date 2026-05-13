@@ -17,7 +17,7 @@ import {
   KAFKA_PASSWORD, 
   KAFKA_USERNAME, 
   PROJECT_ID 
-} from "../envs";
+} from "../envs.js";
 
 class KafkaService {
   // The Kafka client instance

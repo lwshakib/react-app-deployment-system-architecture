@@ -14,7 +14,7 @@ import {
   DB_PORT, 
   DB_USER, 
   POSTGRES_CA_CERT 
-} from '../envs';
+} from '../envs.js';
 
 class PostgresService {
   // Shared connection pool instance

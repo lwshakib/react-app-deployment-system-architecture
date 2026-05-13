@@ -13,8 +13,8 @@ import { useRouter } from "next/navigation";
 // UI Components and Icons
 import { Rocket, Trash2 } from "lucide-react";
 import { FaGithub as Github } from "react-icons/fa";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@workspace/ui/components/button";
+import { Input } from "@workspace/ui/components/input";
 
 // Specialized UI components from the local shadcn/ui library
 import { 
@@ -27,7 +27,7 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle, 
   AlertDialogTrigger 
-} from "@/components/ui/alert-dialog";
+} from "@workspace/ui/components/alert-dialog";
 
 // Define the shape of a deployment object for TypeScript safety
 interface Deployment {

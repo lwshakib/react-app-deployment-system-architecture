@@ -9,14 +9,14 @@ import path from "path";
 import fs from "fs";
 
 // Import services for Kafka (logging/status) and S3 (storage)
-import { kafkaService } from "./services/kafka.services";
-import { s3Service } from "./services/s3.services";
+import { kafkaService } from "./services/kafka.services.js";
+import { s3Service } from "./services/s3.services.js";
 
 // Import centralized Winston logger
-import logger from "./logger/winston.logger";
+import logger from "./logger/winston.logger.js";
 
 // Import environment variables required for the build process
-import { DEPLOYMENT_ID, GIT_REPOSITORY__URL, PROJECT_ID } from "./envs";
+import { DEPLOYMENT_ID, GIT_REPOSITORY__URL, PROJECT_ID } from "./envs.js";
 
 /**
  * Gracefully shuts down the process.
